@@ -18,7 +18,7 @@ Les comptes et sauvegardes sont stockes localement dans le navigateur via `local
 
 ## Hebergement
 
-Le projet peut etre publie tel quel sur GitHub Pages. Voir `DEPLOY.md`.
+Le projet est publie sur GitHub Pages depuis la branche `main`. Chaque `git push` sur `main` redeploie le site automatiquement. Voir `DEPLOY.md`.
 
 ## Fichiers
 
