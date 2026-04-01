@@ -41,6 +41,8 @@
     questionSubtext: document.getElementById("question-subtext"),
     optionsGrid: document.getElementById("options-grid"),
     hintButton: document.getElementById("hint-button"),
+    skipButton: document.getElementById("skip-button"),
+    pauseButton: document.getElementById("pause-button"),
     hintBox: document.getElementById("hint-box"),
     feedbackBox: document.getElementById("feedback-box"),
     nextButton: document.getElementById("next-button"),
@@ -97,6 +99,8 @@
     autoNextId: null,
     recentQuestionKeys: [],
     questionGoal: null,
+    questionStats: {},
+    paused: false,
   };
 
   function init() {
@@ -112,6 +116,8 @@
     elements.logoutButton.addEventListener("click", logout);
     elements.startButton.addEventListener("click", startGame);
     elements.hintButton.addEventListener("click", revealHint);
+    elements.skipButton.addEventListener("click", skipQuestion);
+    elements.pauseButton.addEventListener("click", togglePause);
     elements.nextButton.addEventListener("click", goToNextQuestion);
     elements.finishButton.addEventListener("click", finishSession);
     elements.restartButton.addEventListener("click", restart);
@@ -164,9 +170,11 @@
     state.feedbackTone = "";
     state.hintText = "";
     state.recentQuestionKeys = [];
+    state.questionStats = {};
     state.settings = settings;
     state.questionGoal = settings.mode === "challenge" ? 10 : null;
     state.timeLeft = 60;
+    state.paused = false;
     state.questions = [];
 
     appendNextQuestion(basePool, settings);
@@ -213,6 +221,7 @@
       pool,
       settings,
       state.recentQuestionKeys,
+      state.questionStats,
       state.questions.length
     );
 
@@ -222,6 +231,7 @@
 
     state.questions.push(nextQuestion);
     state.recentQuestionKeys.push(nextQuestion.key);
+    state.questionStats[nextQuestion.key] = (state.questionStats[nextQuestion.key] || 0) + 1;
 
     const maxRecent = Math.min(8, Math.max(3, pool.length - 1));
     if (state.recentQuestionKeys.length > maxRecent) {
@@ -229,7 +239,7 @@
     }
   }
 
-  function generateQuestion(pool, settings, recentQuestionKeys, sequenceNumber) {
+  function generateQuestion(pool, settings, recentQuestionKeys, questionStats, sequenceNumber) {
     const candidates = [];
 
     pool.forEach((item) => {
@@ -255,7 +265,13 @@
       (candidate) => !recentQuestionKeys.includes(candidate.key)
     );
     const selectionPool = freshCandidates.length ? freshCandidates : candidates;
-    const picked = selectionPool[Math.floor(Math.random() * selectionPool.length)];
+    const minSeenCount = Math.min(
+      ...selectionPool.map((candidate) => questionStats[candidate.key] || 0)
+    );
+    const balancedPool = selectionPool.filter(
+      (candidate) => (questionStats[candidate.key] || 0) === minSeenCount
+    );
+    const picked = balancedPool[Math.floor(Math.random() * balancedPool.length)];
 
     if (!picked) {
       return null;
@@ -333,7 +349,9 @@
     elements.hintBox.classList.add("hidden");
     elements.nextButton.classList.add("hidden");
     elements.hintButton.disabled = false;
+    elements.skipButton.disabled = false;
     elements.mapCaption.textContent = "Clique sur un pays";
+    elements.pauseButton.textContent = state.paused ? "Reprendre" : "Pause";
 
     options.forEach((country) => {
       const button = document.createElement("button");
@@ -355,6 +373,7 @@
     }
 
     restoreQuestionUi();
+    applyPausedUi();
     saveGameProgress();
   }
 
@@ -379,7 +398,7 @@
   }
 
   function revealHint() {
-    if (!state.currentQuestion || state.hintUsed || state.answered) {
+    if (!state.currentQuestion || state.hintUsed || state.answered || state.paused) {
       return;
     }
 
@@ -399,7 +418,7 @@
   }
 
   function submitAnswer(choice) {
-    if (state.answered || !state.currentQuestion) {
+    if (state.answered || !state.currentQuestion || state.paused) {
       return;
     }
 
@@ -453,11 +472,48 @@
 
     if (state.settings.mode !== "learning") {
       state.autoNextId = window.setTimeout(() => {
-        if (state.settings.mode !== "challenge" && state.answered) {
+        if (state.settings.mode !== "challenge" && state.answered && !state.paused) {
           goToNextQuestion();
         }
       }, 1800);
     }
+  }
+
+  function skipQuestion() {
+    if (!state.currentQuestion || state.answered || state.paused) {
+      return;
+    }
+
+    clearAutoNext();
+    state.answered = true;
+    state.selectedChoice = "Passée";
+    state.feedbackText = `Question passée. La bonne réponse était ${state.currentQuestion.answer}. Capitale : ${state.currentQuestion.item.capital}. ${state.currentQuestion.item.fact}`;
+    state.feedbackTone = "error";
+
+    state.answers.push({
+      prompt: state.currentQuestion.prompt,
+      answer: state.currentQuestion.answer,
+      selected: "Passée",
+      fact: state.currentQuestion.item.fact,
+      capital: state.currentQuestion.item.capital,
+      monument: state.currentQuestion.item.monument,
+      isCorrect: false,
+    });
+
+    markOptions("Passée");
+    elements.feedbackBox.textContent = state.feedbackText;
+    elements.feedbackBox.classList.add(state.feedbackTone);
+    elements.hintButton.disabled = true;
+    elements.skipButton.disabled = true;
+    elements.mapCaption.textContent = "Question sautée";
+    saveGameProgress();
+
+    if (shouldFinishGame()) {
+      setTimeout(endGame, 1200);
+      return;
+    }
+
+    elements.nextButton.classList.remove("hidden");
   }
 
   function computePoints(isCorrect) {
@@ -513,7 +569,7 @@
   }
 
   function goToNextQuestion() {
-    if (!state.answered) {
+    if (!state.answered || state.paused) {
       return;
     }
 
@@ -537,6 +593,9 @@
     clearTimer();
     elements.timerValue.textContent = `${state.timeLeft}s`;
     state.timerId = window.setInterval(() => {
+      if (state.paused) {
+        return;
+      }
       state.timeLeft -= 1;
       elements.timerValue.textContent = `${state.timeLeft}s`;
       saveGameProgress();
@@ -550,6 +609,58 @@
     if (state.timerId) {
       clearInterval(state.timerId);
       state.timerId = null;
+    }
+  }
+
+  function togglePause() {
+    if (!state.settings || !state.currentQuestion) {
+      return;
+    }
+
+    state.paused = !state.paused;
+    elements.pauseButton.textContent = state.paused ? "Reprendre" : "Pause";
+
+    if (state.paused) {
+      clearAutoNext();
+      state.feedbackText = state.feedbackText || "Partie en pause. Reprends quand tu veux.";
+      if (!state.feedbackTone) {
+        state.feedbackTone = "";
+      }
+    }
+
+    applyPausedUi();
+    saveGameProgress();
+  }
+
+  function applyPausedUi() {
+    const optionButtons = elements.optionsGrid.querySelectorAll(".option-button");
+    const pins = elements.miniMap.querySelectorAll(".map-pin");
+    const shouldLock = state.paused;
+
+    optionButtons.forEach((button) => {
+      button.disabled = shouldLock || state.answered;
+    });
+
+    pins.forEach((pin) => {
+      pin.disabled = shouldLock || state.answered;
+    });
+
+    if (!state.answered) {
+      elements.hintButton.disabled = shouldLock || state.hintUsed;
+      elements.skipButton.disabled = shouldLock;
+    }
+
+    elements.nextButton.disabled = shouldLock;
+
+    if (state.paused) {
+      elements.feedbackBox.textContent = "Partie en pause. Clique sur Reprendre pour continuer.";
+      elements.feedbackBox.className = "feedback-box";
+    } else if (state.feedbackText) {
+      elements.feedbackBox.textContent = state.feedbackText;
+      elements.feedbackBox.className = "feedback-box";
+      if (state.feedbackTone) {
+        elements.feedbackBox.classList.add(state.feedbackTone);
+      }
     }
   }
 
@@ -757,6 +868,8 @@
     state.hintText = snapshot.hintText || "";
     state.recentQuestionKeys = snapshot.recentQuestionKeys || [];
     state.questionGoal = snapshot.questionGoal || null;
+    state.questionStats = snapshot.questionStats || {};
+    state.paused = Boolean(snapshot.paused);
 
     if (!state.settings || !state.questions.length) {
       clearSavedGame();
@@ -883,6 +996,8 @@
         hintText: state.hintText,
         recentQuestionKeys: state.recentQuestionKeys,
         questionGoal: state.questionGoal,
+        questionStats: state.questionStats,
+        paused: state.paused,
       },
     }));
 
@@ -921,6 +1036,7 @@
 
     markOptions(state.selectedChoice);
     elements.hintButton.disabled = true;
+    elements.skipButton.disabled = true;
     if (!shouldFinishGame()) {
       elements.nextButton.classList.remove("hidden");
     }
