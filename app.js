@@ -1088,20 +1088,19 @@
 
   function renderLeaderboard() {
     const users = Object.values(getUsers());
-    const top = users
+    const ranking = users
       .map((profile) => ({
         name: profile.displayName || "Joueur",
         score: profile.bestScore || 0,
       }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8);
+      .sort((a, b) => b.score - a.score);
 
-    if (!top.length) {
+    if (!ranking.length) {
       elements.leaderboardList.innerHTML = "<p>Aucun score enregistré pour le moment.</p>";
       return;
     }
 
-    elements.leaderboardList.innerHTML = top
+    elements.leaderboardList.innerHTML = ranking
       .map(
         (entry, index) =>
           `<p><strong>#${index + 1}</strong> ${entry.name} <span>${entry.score} pts</span></p>`
