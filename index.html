@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cap sur le Quiz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Syne:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Quiz Pays, Capitales et Monuments</p>
+          <h1>Cap sur le Quiz Aline</h1>
+          <p class="hero-text">
+            Un jeu de géographie interactif avec cartes, indices, mode
+            apprentissage, défis chronométrés et duel contre un bot.
+          </p>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-card">
+            <span>Meilleur score</span>
+            <strong id="best-score">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Record défi 1 min</span>
+            <strong id="best-challenge">0</strong>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="panel screen active" id="screen-start">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">Accueil</p>
+              <h2>Configure ta partie</h2>
+            </div>
+            <p class="section-text">
+              Choisis ton niveau, ton continent et ton mode pour lancer une
+              session dynamique avec feedback immédiat.
+            </p>
+          </div>
+
+          <section class="account-panel">
+            <article class="account-card">
+              <div class="account-copy">
+                <p class="section-kicker">Compte joueur</p>
+                <h3>Sauvegarde locale</h3>
+                <p class="section-text">
+                  Crée un compte avec nom d'utilisateur et mot de passe pour
+                  reprendre ta partie plus tard sur ce navigateur.
+                </p>
+              </div>
+
+              <div class="account-form">
+                <label class="config-card compact-card">
+                  <span>Nom d'utilisateur</span>
+                  <input
+                    id="username-input"
+                    type="text"
+                    placeholder="Ex : aline"
+                    autocomplete="username"
+                  />
+                </label>
+
+                <label class="config-card compact-card">
+                  <span>Mot de passe</span>
+                  <input
+                    id="password-input"
+                    type="password"
+                    placeholder="Minimum 4 caractères"
+                    autocomplete="current-password"
+                  />
+                </label>
+
+                <div class="account-actions">
+                  <button class="primary-button" id="create-account-button">
+                    Créer un compte
+                  </button>
+                  <button class="secondary-button" id="login-button">
+                    Se connecter
+                  </button>
+                  <button class="secondary-button hidden" id="resume-button">
+                    Reprendre ma partie
+                  </button>
+                  <button class="secondary-button hidden" id="logout-button">
+                    Se déconnecter
+                  </button>
+                </div>
+
+                <p class="feedback-box" id="account-status" aria-live="polite">
+                  Connecte-toi pour lancer une partie et sauvegarder ta progression.
+                </p>
+              </div>
+            </article>
+          </section>
+
+          <div class="config-grid">
+            <label class="config-card">
+              <span>Niveau</span>
+              <select id="difficulty-select">
+                <option value="all">Tous</option>
+                <option value="easy">Facile</option>
+                <option value="medium">Moyen</option>
+                <option value="hard">Difficile</option>
+              </select>
+            </label>
+
+            <label class="config-card">
+              <span>Continent</span>
+              <select id="continent-select">
+                <option value="all">Monde</option>
+                <option value="Europe">Europe</option>
+                <option value="Afrique">Afrique</option>
+                <option value="Asie">Asie</option>
+                <option value="Amérique du Nord">Amérique du Nord</option>
+                <option value="Amérique du Sud">Amérique du Sud</option>
+                <option value="Océanie">Océanie</option>
+              </select>
+            </label>
+
+            <label class="config-card">
+              <span>Parcours</span>
+              <select id="theme-select">
+                <option value="mixed">Mixte</option>
+                <option value="capitals">Capitales</option>
+                <option value="monuments">Monuments</option>
+              </select>
+            </label>
+
+            <label class="config-card">
+              <span>Mode</span>
+              <select id="mode-select">
+                <option value="standard">Standard</option>
+                <option value="learning">Apprentissage</option>
+                <option value="challenge">Défi 10 pays / 1 minute</option>
+                <option value="battle">Duel contre le bot</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="theme-strip">
+            <article class="feature-card">
+              <h3>Carte interactive</h3>
+              <p>Clique sur les repères pays pour répondre autrement.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Indices</h3>
+              <p>Débloque une aide contextuelle quand une question résiste.</p>
+            </article>
+            <article class="feature-card">
+              <h3>Apprentissage</h3>
+              <p>Découvre un fait culturel après chaque bonne réponse.</p>
+            </article>
+          </div>
+
+          <p class="feedback-box hidden" id="start-notice" aria-live="polite"></p>
+
+          <button class="primary-button" id="start-button">Commencer</button>
+        </section>
+
+        <section class="panel screen" id="screen-game">
+          <div class="game-topbar">
+            <div>
+              <p class="section-kicker">Partie en cours</p>
+              <h2 id="game-mode-title">Mode standard</h2>
+            </div>
+            <div class="score-rack">
+              <div class="score-pill">
+                <span>Score</span>
+                <strong id="score-value">0</strong>
+              </div>
+              <div class="score-pill">
+                <span>Question</span>
+                <strong id="progress-value">1 / 10</strong>
+              </div>
+              <div class="score-pill" id="timer-pill">
+                <span>Temps</span>
+                <strong id="timer-value">60s</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="battle-bar hidden" id="battle-bar">
+            <span>Bot</span>
+            <div class="battle-meter-track">
+              <div class="battle-meter-fill" id="bot-meter"></div>
+            </div>
+            <strong id="bot-score">0</strong>
+          </div>
+
+          <div class="question-layout">
+            <article class="question-card">
+              <div class="question-meta">
+                <span id="badge-continent">Europe</span>
+                <span id="badge-type">Capitales</span>
+                <span id="badge-difficulty">Facile</span>
+              </div>
+              <h3 id="question-text">Quel pays a pour capitale Rome ?</h3>
+              <p class="question-subtext" id="question-subtext">
+                Sélectionne un pays dans les choix ou sur la mini-carte.
+              </p>
+
+              <div class="actions-row">
+                <button class="secondary-button" id="hint-button">
+                  Utiliser un indice
+                </button>
+                <button class="secondary-button hidden" id="next-button">
+                  Question suivante
+                </button>
+              </div>
+
+              <p class="hint-box hidden" id="hint-box"></p>
+              <p class="feedback-box" id="feedback-box" aria-live="polite"></p>
+
+              <div class="options-grid" id="options-grid"></div>
+            </article>
+
+            <aside class="map-card">
+              <div class="map-head">
+                <div>
+                  <p class="section-kicker">Carte interactive</p>
+                  <h3>Repères de voyage</h3>
+                </div>
+                <span id="map-caption">Clique sur un pays</span>
+              </div>
+              <div class="mini-map" id="mini-map"></div>
+              <p class="map-footnote">
+                Les repères sont positionnés selon la zone géographique du pays.
+              </p>
+            </aside>
+          </div>
+        </section>
+
+        <section class="panel screen" id="screen-result">
+          <div class="panel-head">
+            <div>
+              <p class="section-kicker">Résultats</p>
+              <h2 id="result-title">Ton voyage se termine ici</h2>
+            </div>
+            <p class="section-text" id="result-summary"></p>
+          </div>
+
+          <div class="result-stats">
+            <div class="result-card">
+              <span>Score final</span>
+              <strong id="final-score">0</strong>
+            </div>
+            <div class="result-card">
+              <span>Bonnes réponses</span>
+              <strong id="correct-count">0</strong>
+            </div>
+            <div class="result-card">
+              <span>Mode</span>
+              <strong id="final-mode">Standard</strong>
+            </div>
+          </div>
+
+          <div class="result-actions">
+            <button class="secondary-button" id="restart-button">Rejouer</button>
+            <button class="primary-button" id="share-button">Partager le score</button>
+          </div>
+
+          <div class="review-list" id="review-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
