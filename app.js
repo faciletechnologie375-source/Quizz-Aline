@@ -64,6 +64,8 @@
     shareButton: document.getElementById("share-button"),
     leaderboardList: document.getElementById("leaderboard-list"),
     historyList: document.getElementById("history-list"),
+    leaderboardListResult: document.getElementById("leaderboard-list-result"),
+    historyListResult: document.getElementById("history-list-result"),
   };
 
   const MODE_LABELS = {
@@ -1096,16 +1098,21 @@
       .sort((a, b) => b.score - a.score);
 
     if (!ranking.length) {
-      elements.leaderboardList.innerHTML = "<p>Aucun score enregistré pour le moment.</p>";
+      const emptyMessage = "<p>Aucun score enregistré pour le moment.</p>";
+      elements.leaderboardList.innerHTML = emptyMessage;
+      if (elements.leaderboardListResult) elements.leaderboardListResult.innerHTML = emptyMessage;
       return;
     }
 
-    elements.leaderboardList.innerHTML = ranking
+    const html = ranking
       .map(
         (entry, index) =>
           `<p><strong>#${index + 1}</strong> ${entry.name} <span>${entry.score} pts</span></p>`
       )
       .join("");
+    
+    elements.leaderboardList.innerHTML = html;
+    if (elements.leaderboardListResult) elements.leaderboardListResult.innerHTML = html;
   }
 
   function renderHistory() {
@@ -1113,11 +1120,13 @@
     const history = Array.isArray(profile && profile.history) ? profile.history : [];
 
     if (!history.length) {
-      elements.historyList.innerHTML = "<p>Aucune session jouée pour ce compte.</p>";
+      const emptyMessage = "<p>Aucune session jouée pour ce compte.</p>";
+      elements.historyList.innerHTML = emptyMessage;
+      if (elements.historyListResult) elements.historyListResult.innerHTML = emptyMessage;
       return;
     }
 
-    elements.historyList.innerHTML = history
+    const html = history
       .slice(0, 8)
       .map((session) => {
         const date = new Date(session.date).toLocaleDateString("fr-FR", {
@@ -1127,6 +1136,9 @@
         return `<p><strong>${date}</strong> ${MODE_LABELS[session.mode]} · ${THEME_LABELS[session.theme]} <span>${session.score} pts (${session.correct}/${session.total})</span></p>`;
       })
       .join("");
+    
+    elements.historyList.innerHTML = html;
+    if (elements.historyListResult) elements.historyListResult.innerHTML = html;
   }
 
   function updateAuthStatus(message, tone) {
