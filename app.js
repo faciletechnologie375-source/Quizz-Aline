@@ -44,6 +44,7 @@
     hintBox: document.getElementById("hint-box"),
     feedbackBox: document.getElementById("feedback-box"),
     nextButton: document.getElementById("next-button"),
+    finishButton: document.getElementById("finish-button"),
     miniMap: document.getElementById("mini-map"),
     mapCaption: document.getElementById("map-caption"),
     resultTitle: document.getElementById("result-title"),
@@ -94,6 +95,8 @@
     feedbackTone: "",
     hintText: "",
     autoNextId: null,
+    recentQuestionKeys: [],
+    questionGoal: null,
   };
 
   function init() {
@@ -110,6 +113,7 @@
     elements.startButton.addEventListener("click", startGame);
     elements.hintButton.addEventListener("click", revealHint);
     elements.nextButton.addEventListener("click", goToNextQuestion);
+    elements.finishButton.addEventListener("click", finishSession);
     elements.restartButton.addEventListener("click", restart);
     elements.shareButton.addEventListener("click", shareScore);
     window.addEventListener("beforeunload", saveGameProgress);
@@ -159,9 +163,13 @@
     state.feedbackText = "";
     state.feedbackTone = "";
     state.hintText = "";
+    state.recentQuestionKeys = [];
     state.settings = settings;
+    state.questionGoal = settings.mode === "challenge" ? 10 : null;
     state.timeLeft = 60;
-    state.questions = createQuestions(basePool, settings);
+    state.questions = [];
+
+    appendNextQuestion(basePool, settings);
 
     if (!state.questions.length) {
       showStartNotice(
@@ -200,37 +208,68 @@
     });
   }
 
-  function createQuestions(pool, settings) {
-    const questionCount = settings.mode === "challenge" ? 10 : 8;
-    const shuffled = shuffle([...pool]);
-    const questions = [];
+  function appendNextQuestion(pool, settings) {
+    const nextQuestion = generateQuestion(
+      pool,
+      settings,
+      state.recentQuestionKeys,
+      state.questions.length
+    );
 
-    for (let index = 0; index < questionCount; index += 1) {
-      const item = shuffled[index % shuffled.length];
-      const type = pickQuestionType(settings.theme, item);
-      const options = buildOptions(pool, item);
-
-      questions.push({
-        id: `${item.country}-${index}`,
-        item,
-        type,
-        prompt: buildPrompt(type, item),
-        answer: item.country,
-        options,
-      });
+    if (!nextQuestion) {
+      return;
     }
 
-    return questions;
+    state.questions.push(nextQuestion);
+    state.recentQuestionKeys.push(nextQuestion.key);
+
+    const maxRecent = Math.min(8, Math.max(3, pool.length - 1));
+    if (state.recentQuestionKeys.length > maxRecent) {
+      state.recentQuestionKeys = state.recentQuestionKeys.slice(-maxRecent);
+    }
   }
 
-  function pickQuestionType(theme, item) {
-    if (theme === "capitals") {
-      return "capital";
+  function generateQuestion(pool, settings, recentQuestionKeys, sequenceNumber) {
+    const candidates = [];
+
+    pool.forEach((item) => {
+      if (settings.theme === "capitals") {
+        candidates.push({ item, type: "capital", key: `capital:${item.country}` });
+        return;
+      }
+
+      if (settings.theme === "monuments") {
+        if (item.monument) {
+          candidates.push({ item, type: "monument", key: `monument:${item.country}` });
+        }
+        return;
+      }
+
+      candidates.push({ item, type: "capital", key: `capital:${item.country}` });
+      if (item.monument) {
+        candidates.push({ item, type: "monument", key: `monument:${item.country}` });
+      }
+    });
+
+    const freshCandidates = candidates.filter(
+      (candidate) => !recentQuestionKeys.includes(candidate.key)
+    );
+    const selectionPool = freshCandidates.length ? freshCandidates : candidates;
+    const picked = selectionPool[Math.floor(Math.random() * selectionPool.length)];
+
+    if (!picked) {
+      return null;
     }
-    if (theme === "monuments") {
-      return item.monument ? "monument" : "capital";
-    }
-    return item.monument && Math.random() > 0.5 ? "monument" : "capital";
+
+    return {
+      id: `${picked.item.country}-${picked.type}-${sequenceNumber}`,
+      key: picked.key,
+      item: picked.item,
+      type: picked.type,
+      prompt: buildPrompt(picked.type, picked.item),
+      answer: picked.item.country,
+      options: buildOptions(pool, picked.item),
+    };
   }
 
   function buildPrompt(type, item) {
@@ -272,9 +311,12 @@
     }
 
     const { item, type, prompt, options } = state.currentQuestion;
+    const progressLabel = state.questionGoal
+      ? `${state.questionIndex + 1} / ${state.questionGoal}`
+      : `${state.questionIndex + 1} / infini`;
 
     elements.scoreValue.textContent = state.score;
-    elements.progressValue.textContent = `${state.questionIndex + 1} / ${state.questions.length}`;
+    elements.progressValue.textContent = progressLabel;
     elements.badgeContinent.textContent = item.continent;
     elements.badgeType.textContent = THEME_LABELS[type === "capital" ? "capitals" : "monuments"];
     elements.badgeDifficulty.textContent = DIFFICULTY_LABELS[item.difficulty];
@@ -477,9 +519,14 @@
 
     clearAutoNext();
     state.questionIndex += 1;
-    if (state.questionIndex >= state.questions.length) {
+
+    if (state.questionGoal && state.questionIndex >= state.questionGoal) {
       endGame();
       return;
+    }
+
+    if (state.questionIndex >= state.questions.length) {
+      appendNextQuestion(buildPool(state.settings), state.settings);
     }
 
     state.answered = false;
@@ -507,10 +554,9 @@
   }
 
   function shouldFinishGame() {
-    if (state.settings.mode === "challenge") {
-      return state.questionIndex >= state.questions.length - 1;
-    }
-    return state.questionIndex >= state.questions.length - 1;
+    return Boolean(
+      state.questionGoal && state.questionIndex >= state.questionGoal - 1
+    );
   }
 
   function endGame() {
@@ -609,6 +655,15 @@
     showScreen("start");
   }
 
+  function finishSession() {
+    if (!state.questions.length) {
+      showScreen("start");
+      return;
+    }
+
+    endGame();
+  }
+
   function createAccount() {
     const credentials = getCredentials();
     if (!credentials) {
@@ -700,6 +755,8 @@
     state.feedbackText = snapshot.feedbackText || "";
     state.feedbackTone = snapshot.feedbackTone || "";
     state.hintText = snapshot.hintText || "";
+    state.recentQuestionKeys = snapshot.recentQuestionKeys || [];
+    state.questionGoal = snapshot.questionGoal || null;
 
     if (!state.settings || !state.questions.length) {
       clearSavedGame();
@@ -824,6 +881,8 @@
         feedbackText: state.feedbackText,
         feedbackTone: state.feedbackTone,
         hintText: state.hintText,
+        recentQuestionKeys: state.recentQuestionKeys,
+        questionGoal: state.questionGoal,
       },
     }));
 
