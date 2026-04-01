@@ -4,6 +4,13 @@
     currentUser: "quizCurrentUser",
   };
 
+  const ONLINE_LEADERBOARD = {
+    enabled: Boolean(window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.enabled),
+    serviceUrl: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.serviceUrl) || "",
+    anonKey: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.anonKey) || "",
+    table: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.table) || "quiz_leaderboard",
+  };
+
   const SCREENS = {
     start: document.getElementById("screen-start"),
     game: document.getElementById("screen-game"),
@@ -180,6 +187,8 @@
     questionStats: {},
     paused: false,
     audioContext: null,
+    onlineLeaderboard: [],
+    onlinePollId: null,
   };
 
   function init() {
@@ -187,6 +196,7 @@
     restoreCurrentUser();
     updateAuthUi();
     renderDashboard();
+    startOnlineLeaderboardSync();
   }
 
   function bindEvents() {
@@ -204,7 +214,14 @@
     elements.finishButton.addEventListener("click", finishSession);
     elements.restartButton.addEventListener("click", restart);
     elements.shareButton.addEventListener("click", shareScore);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("beforeunload", saveGameProgress);
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === "visible") {
+      fetchOnlineLeaderboard();
+    }
   }
 
   function loadRecords() {
@@ -873,6 +890,7 @@
       return nextProfile;
     });
     loadRecords();
+    syncCurrentUserToOnlineLeaderboard();
   }
 
   function renderReview() {
@@ -960,6 +978,7 @@
       "success"
     );
     clearStartNotice();
+    syncCurrentUserToOnlineLeaderboard();
   }
 
   function login() {
@@ -981,6 +1000,8 @@
       "success"
     );
     clearStartNotice();
+    syncCurrentUserToOnlineLeaderboard();
+    syncCurrentUserFromOnlineLeaderboard();
   }
 
   function logout() {
@@ -991,6 +1012,7 @@
     updateAuthUi();
     updateAuthStatus("Déconnecté. Reconnecte-toi pour reprendre ou lancer une partie.");
     showScreen("start");
+    fetchOnlineLeaderboard();
   }
 
   function resumeSavedGame() {
@@ -1089,13 +1111,7 @@
   }
 
   function renderLeaderboard() {
-    const users = Object.values(getUsers());
-    const ranking = users
-      .map((profile) => ({
-        name: profile.displayName || "Joueur",
-        score: profile.bestScore || 0,
-      }))
-      .sort((a, b) => b.score - a.score);
+    const ranking = buildLeaderboardRanking();
 
     if (!ranking.length) {
       const emptyMessage = "<p>Aucun score enregistré pour le moment.</p>";
@@ -1113,6 +1129,36 @@
     
     elements.leaderboardList.innerHTML = html;
     if (elements.leaderboardListResult) elements.leaderboardListResult.innerHTML = html;
+  }
+
+  function buildLeaderboardRanking() {
+    const merged = new Map();
+    const localUsers = getUsers();
+
+    Object.entries(localUsers).forEach(([username, profile]) => {
+      merged.set(username, {
+        username,
+        name: profile.displayName || "Joueur",
+        score: profile.bestScore || 0,
+      });
+    });
+
+    state.onlineLeaderboard.forEach((entry) => {
+      if (!entry || !entry.username) {
+        return;
+      }
+
+      const existing = merged.get(entry.username);
+      if (!existing || (entry.best_score || 0) > existing.score) {
+        merged.set(entry.username, {
+          username: entry.username,
+          name: entry.display_name || entry.username,
+          score: entry.best_score || 0,
+        });
+      }
+    });
+
+    return Array.from(merged.values()).sort((a, b) => b.score - a.score);
   }
 
   function renderHistory() {
@@ -1271,6 +1317,137 @@
     } catch (error) {
       return {};
     }
+  }
+
+  function hasOnlineLeaderboardConfig() {
+    return Boolean(
+      ONLINE_LEADERBOARD.enabled &&
+      ONLINE_LEADERBOARD.serviceUrl &&
+      ONLINE_LEADERBOARD.anonKey
+    );
+  }
+
+  function getOnlineEndpoint(query) {
+    const baseUrl = ONLINE_LEADERBOARD.serviceUrl.replace(/\/$/, "");
+    return `${baseUrl}/rest/v1/${ONLINE_LEADERBOARD.table}${query ? `?${query}` : ""}`;
+  }
+
+  function getOnlineHeaders() {
+    return {
+      apikey: ONLINE_LEADERBOARD.anonKey,
+      Authorization: `Bearer ${ONLINE_LEADERBOARD.anonKey}`,
+      "Content-Type": "application/json",
+    };
+  }
+
+  function startOnlineLeaderboardSync() {
+    if (!hasOnlineLeaderboardConfig()) {
+      return;
+    }
+
+    fetchOnlineLeaderboard();
+    if (state.onlinePollId) {
+      clearInterval(state.onlinePollId);
+    }
+    state.onlinePollId = window.setInterval(fetchOnlineLeaderboard, 15000);
+  }
+
+  async function fetchOnlineLeaderboard() {
+    if (!hasOnlineLeaderboardConfig()) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        getOnlineEndpoint("select=username,display_name,best_score&order=best_score.desc"),
+        {
+          method: "GET",
+          headers: getOnlineHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        return;
+      }
+
+      const rows = await response.json();
+      state.onlineLeaderboard = Array.isArray(rows) ? rows : [];
+      renderLeaderboard();
+    } catch (error) {
+      // Network failures should not block gameplay.
+    }
+  }
+
+  function syncCurrentUserToOnlineLeaderboard() {
+    if (!state.currentUser || !hasOnlineLeaderboardConfig()) {
+      return;
+    }
+
+    const profile = getCurrentProfile();
+    if (!profile) {
+      return;
+    }
+
+    const payload = [
+      {
+        username: state.currentUser,
+        display_name: profile.displayName || state.currentUser,
+        best_score: profile.bestScore || 0,
+      },
+    ];
+
+    fetch(getOnlineEndpoint("on_conflict=username"), {
+      method: "POST",
+      headers: {
+        ...getOnlineHeaders(),
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(payload),
+    })
+      .then(() => fetchOnlineLeaderboard())
+      .catch(() => {
+        // Keep local mode operational when sync fails.
+      });
+  }
+
+  function syncCurrentUserFromOnlineLeaderboard() {
+    if (!state.currentUser || !hasOnlineLeaderboardConfig()) {
+      return;
+    }
+
+    fetch(
+      getOnlineEndpoint(
+        `select=username,display_name,best_score&username=eq.${encodeURIComponent(state.currentUser)}&limit=1`
+      ),
+      {
+        method: "GET",
+        headers: getOnlineHeaders(),
+      }
+    )
+      .then((response) => {
+        if (!response.ok) {
+          return null;
+        }
+        return response.json();
+      })
+      .then((rows) => {
+        if (!rows || !rows.length) {
+          return;
+        }
+
+        const remote = rows[0];
+        updateCurrentProfile((profile) => ({
+          ...profile,
+          displayName: remote.display_name || profile.displayName,
+          bestScore: Math.max(profile.bestScore || 0, remote.best_score || 0),
+        }));
+
+        loadRecords();
+        renderLeaderboard();
+      })
+      .catch(() => {
+        // Local gameplay remains available if remote sync fails.
+      });
   }
 
   function setUsers(users) {
