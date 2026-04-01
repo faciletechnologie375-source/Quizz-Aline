@@ -39,6 +39,8 @@
     badgeDifficulty: document.getElementById("badge-difficulty"),
     questionText: document.getElementById("question-text"),
     questionSubtext: document.getElementById("question-subtext"),
+    flagImage: document.getElementById("flag-image"),
+    flagCaption: document.getElementById("flag-caption"),
     optionsGrid: document.getElementById("options-grid"),
     hintButton: document.getElementById("hint-button"),
     skipButton: document.getElementById("skip-button"),
@@ -60,6 +62,8 @@
     reviewList: document.getElementById("review-list"),
     restartButton: document.getElementById("restart-button"),
     shareButton: document.getElementById("share-button"),
+    leaderboardList: document.getElementById("leaderboard-list"),
+    historyList: document.getElementById("history-list"),
   };
 
   const MODE_LABELS = {
@@ -80,6 +84,75 @@
     capitals: "Capitales",
     monuments: "Monuments",
     mixed: "Mixte",
+  };
+
+  const COUNTRY_CODES = {
+    "afrique du sud": "za",
+    algerie: "dz",
+    allemagne: "de",
+    "arabie saoudite": "sa",
+    argentine: "ar",
+    australie: "au",
+    autriche: "at",
+    belgique: "be",
+    bolivie: "bo",
+    bresil: "br",
+    canada: "ca",
+    chili: "cl",
+    chine: "cn",
+    colombie: "co",
+    "coree du sud": "kr",
+    "costa rica": "cr",
+    cuba: "cu",
+    danemark: "dk",
+    egypte: "eg",
+    equateur: "ec",
+    espagne: "es",
+    "etats-unis": "us",
+    fidji: "fj",
+    france: "fr",
+    ghana: "gh",
+    grece: "gr",
+    guatemala: "gt",
+    hongrie: "hu",
+    inde: "in",
+    indonesie: "id",
+    irlande: "ie",
+    "iles salomon": "sb",
+    islande: "is",
+    italie: "it",
+    jamaique: "jm",
+    japon: "jp",
+    kazakhstan: "kz",
+    kenya: "ke",
+    luxembourg: "lu",
+    madagascar: "mg",
+    maroc: "ma",
+    mexique: "mx",
+    norvege: "no",
+    "nouvelle-zelande": "nz",
+    panama: "pa",
+    paraguay: "py",
+    "papouasie-nouvelle-guinee": "pg",
+    perou: "pe",
+    philippines: "ph",
+    pologne: "pl",
+    portugal: "pt",
+    "republique tcheque": "cz",
+    "royaume-uni": "gb",
+    samoa: "ws",
+    senegal: "sn",
+    singapour: "sg",
+    suisse: "ch",
+    tanzanie: "tz",
+    thailande: "th",
+    tunisie: "tn",
+    tonga: "to",
+    turquie: "tr",
+    ukraine: "ua",
+    uruguay: "uy",
+    vanuatu: "vu",
+    vietnam: "vn",
   };
 
   const state = {
@@ -110,6 +183,7 @@
     bindEvents();
     restoreCurrentUser();
     updateAuthUi();
+    renderDashboard();
   }
 
   function bindEvents() {
@@ -361,6 +435,7 @@
     elements.badgeDifficulty.textContent = DIFFICULTY_LABELS[item.difficulty];
     elements.questionText.textContent = prompt;
     elements.questionSubtext.textContent = buildThemeSubtext();
+    renderFlagVisual(item, type);
 
     elements.optionsGrid.innerHTML = "";
     elements.feedbackBox.textContent = "";
@@ -415,6 +490,38 @@
       pin.addEventListener("click", () => submitAnswer(country));
       elements.miniMap.appendChild(pin);
     });
+  }
+
+  function renderFlagVisual(item, type) {
+    const countryCode = getCountryCode(item.country);
+    if (!countryCode) {
+      elements.flagImage.classList.add("hidden");
+      elements.flagCaption.textContent = `Pays cible : ${item.country}`;
+      return;
+    }
+
+    elements.flagImage.classList.remove("hidden");
+    elements.flagImage.src = `https://flagcdn.com/w160/${countryCode}.png`;
+    elements.flagImage.alt = `Drapeau de ${item.country}`;
+    elements.flagCaption.textContent =
+      type === "monument"
+        ? `Monument : ${item.monument}`
+        : `Capitale : ${item.capital}`;
+  }
+
+  function getCountryCode(country) {
+    return COUNTRY_CODES[normalizeCountryKey(country)] || null;
+  }
+
+  function normalizeCountryKey(country) {
+    return country
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/œ/g, "oe")
+      .replace(/æ/g, "ae")
+      .replace(/[^a-z\- ]/g, "")
+      .trim();
   }
 
   function revealHint() {
@@ -694,10 +801,10 @@
   function endGame() {
     clearTimer();
     clearAutoNext();
+    const correctAnswers = state.answers.filter((entry) => entry.isCorrect).length;
+    appendHistory(correctAnswers);
     updateRecords();
     clearSavedGame();
-
-    const correctAnswers = state.answers.filter((entry) => entry.isCorrect).length;
     const battleResult =
       state.settings.mode === "battle"
         ? state.score > state.botScore
@@ -713,7 +820,27 @@
     elements.correctCount.textContent = `${correctAnswers} / ${state.answers.length}`;
     elements.finalMode.textContent = buildSessionLabel(state.settings);
     renderReview();
+    renderDashboard();
     showScreen("result");
+  }
+
+  function appendHistory(correctAnswers) {
+    updateCurrentProfile((profile) => {
+      const history = Array.isArray(profile.history) ? [...profile.history] : [];
+      history.unshift({
+        date: new Date().toISOString(),
+        mode: state.settings.mode,
+        theme: state.settings.theme,
+        score: state.score,
+        correct: correctAnswers,
+        total: state.answers.length,
+      });
+
+      return {
+        ...profile,
+        history: history.slice(0, 20),
+      };
+    });
   }
 
   function buildResultSummary(correctAnswers, battleResult) {
@@ -817,6 +944,7 @@
       bestScore: 0,
       bestChallenge: 0,
       savedGame: null,
+      history: [],
     };
     setUsers(users);
     setCurrentUser(credentials.key);
@@ -933,6 +1061,7 @@
       updateAuthStatus(
         "Connecte-toi pour lancer une partie et sauvegarder ta progression."
       );
+      renderDashboard();
       return;
     }
 
@@ -940,10 +1069,61 @@
       updateAuthStatus(
         `${profile.displayName} est connecté. Une partie sauvegardée est prête à reprendre.`
       );
+      renderDashboard();
       return;
     }
 
     updateAuthStatus(`${profile.displayName} est connecté. Tu peux démarrer une nouvelle partie.`);
+    renderDashboard();
+  }
+
+  function renderDashboard() {
+    renderLeaderboard();
+    renderHistory();
+  }
+
+  function renderLeaderboard() {
+    const users = Object.values(getUsers());
+    const top = users
+      .map((profile) => ({
+        name: profile.displayName || "Joueur",
+        score: profile.bestScore || 0,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8);
+
+    if (!top.length) {
+      elements.leaderboardList.innerHTML = "<p>Aucun score enregistré pour le moment.</p>";
+      return;
+    }
+
+    elements.leaderboardList.innerHTML = top
+      .map(
+        (entry, index) =>
+          `<p><strong>#${index + 1}</strong> ${entry.name} <span>${entry.score} pts</span></p>`
+      )
+      .join("");
+  }
+
+  function renderHistory() {
+    const profile = getCurrentProfile();
+    const history = Array.isArray(profile && profile.history) ? profile.history : [];
+
+    if (!history.length) {
+      elements.historyList.innerHTML = "<p>Aucune session jouée pour ce compte.</p>";
+      return;
+    }
+
+    elements.historyList.innerHTML = history
+      .slice(0, 8)
+      .map((session) => {
+        const date = new Date(session.date).toLocaleDateString("fr-FR", {
+          day: "2-digit",
+          month: "2-digit",
+        });
+        return `<p><strong>${date}</strong> ${MODE_LABELS[session.mode]} · ${THEME_LABELS[session.theme]} <span>${session.score} pts (${session.correct}/${session.total})</span></p>`;
+      })
+      .join("");
   }
 
   function updateAuthStatus(message, tone) {

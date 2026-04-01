@@ -6,8 +6,10 @@ Jeu de quiz front-end sur les pays, capitales et monuments, jouable directement 
 
 - Comptes locaux avec nom d'utilisateur, mot de passe et reprise de partie sur le meme navigateur.
 - Ecran d'accueil avec choix du niveau, du continent, du parcours et du mode.
-- Partie interactive avec choix multiples, mini-carte cliquable, score en temps reel, indice et feedback immediat.
+- Partie interactive avec choix multiples, mini-carte cliquable, drapeaux visuels, score en temps reel, indice et feedback immediat.
 - Modes standard, apprentissage, defi 10 pays en 1 minute et duel contre un bot.
+- Base enrichie avec un plus grand nombre de pays, capitales et monuments.
+- Classement local des joueurs et historique des sessions par compte.
 - Ecran de resultat avec recapitulatif des reponses et partage du score.
 
 ## Lancer le projet
