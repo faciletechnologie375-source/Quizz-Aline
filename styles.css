@@ -156,6 +156,10 @@ h2 {
   padding: 28px;
 }
 
+#screen-game {
+  position: relative;
+}
+
 .panel-head {
   display: flex;
   justify-content: space-between;
@@ -365,6 +369,45 @@ select {
 .question-layout {
   align-items: stretch;
   margin-top: 18px;
+}
+
+.pause-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(18, 41, 66, 0.28);
+  backdrop-filter: blur(10px);
+  border-radius: 28px;
+  z-index: 5;
+}
+
+.pause-card {
+  width: min(520px, 100%);
+  padding: 28px;
+  border-radius: 28px;
+  background: linear-gradient(145deg, rgba(255, 249, 239, 0.95), rgba(231, 246, 244, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 24px 60px rgba(29, 53, 87, 0.2);
+  text-align: center;
+}
+
+.pause-card h3 {
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+}
+
+.pause-card .section-text {
+  margin: 14px auto 0;
+}
+
+.pause-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 .question-card,
@@ -626,6 +669,10 @@ button:disabled {
   .review-list,
   .options-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pause-overlay {
+    padding: 16px;
   }
 
   .score-rack {

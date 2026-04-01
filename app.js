@@ -47,6 +47,9 @@
     feedbackBox: document.getElementById("feedback-box"),
     nextButton: document.getElementById("next-button"),
     finishButton: document.getElementById("finish-button"),
+    pauseOverlay: document.getElementById("pause-overlay"),
+    resumePlayButton: document.getElementById("resume-play-button"),
+    pauseFinishButton: document.getElementById("pause-finish-button"),
     miniMap: document.getElementById("mini-map"),
     mapCaption: document.getElementById("map-caption"),
     resultTitle: document.getElementById("result-title"),
@@ -118,6 +121,8 @@
     elements.hintButton.addEventListener("click", revealHint);
     elements.skipButton.addEventListener("click", skipQuestion);
     elements.pauseButton.addEventListener("click", togglePause);
+    elements.resumePlayButton.addEventListener("click", togglePause);
+    elements.pauseFinishButton.addEventListener("click", finishSession);
     elements.nextButton.addEventListener("click", goToNextQuestion);
     elements.finishButton.addEventListener("click", finishSession);
     elements.restartButton.addEventListener("click", restart);
@@ -188,7 +193,7 @@
     }
 
     elements.feedbackBox.textContent = "";
-    elements.gameModeTitle.textContent = MODE_LABELS[settings.mode];
+    elements.gameModeTitle.textContent = buildSessionLabel(settings);
     elements.battleBar.classList.toggle("hidden", settings.mode !== "battle");
     elements.timerPill.classList.toggle("hidden", settings.mode !== "challenge");
 
@@ -296,6 +301,24 @@
     return `Quel pays a pour capitale ${item.capital} ?`;
   }
 
+  function buildSessionLabel(settings) {
+    return `${MODE_LABELS[settings.mode]} · ${THEME_LABELS[settings.theme]}`;
+  }
+
+  function buildThemeSubtext() {
+    if (state.settings.theme === "capitals") {
+      return "Parcours 100% capitales : identifie le pays à partir de sa capitale.";
+    }
+
+    if (state.settings.theme === "monuments") {
+      return "Parcours 100% monuments : associe chaque monument emblématique à son pays.";
+    }
+
+    return state.settings.mode === "learning"
+      ? "Observe la reponse, puis profite du fait culturel pour retenir plus vite."
+      : "Parcours mixte : alterne entre capitales et monuments, avec carte interactive.";
+  }
+
   function buildOptions(pool, item) {
     const localPool = pool.filter((entry) => entry.country !== item.country);
     const globalFallback = window.QUIZ_DATA.filter(
@@ -337,10 +360,7 @@
     elements.badgeType.textContent = THEME_LABELS[type === "capital" ? "capitals" : "monuments"];
     elements.badgeDifficulty.textContent = DIFFICULTY_LABELS[item.difficulty];
     elements.questionText.textContent = prompt;
-    elements.questionSubtext.textContent =
-      state.settings.mode === "learning"
-        ? "Observe la reponse, puis profite du fait culturel pour retenir plus vite."
-        : "Choisis un pays dans les propositions ou clique directement sur la mini-carte.";
+    elements.questionSubtext.textContent = buildThemeSubtext();
 
     elements.optionsGrid.innerHTML = "";
     elements.feedbackBox.textContent = "";
@@ -651,6 +671,7 @@
     }
 
     elements.nextButton.disabled = shouldLock;
+    elements.pauseOverlay.classList.toggle("hidden", !state.paused);
 
     if (state.paused) {
       elements.feedbackBox.textContent = "Partie en pause. Clique sur Reprendre pour continuer.";
@@ -690,7 +711,7 @@
     elements.resultSummary.textContent = buildResultSummary(correctAnswers, battleResult);
     elements.finalScore.textContent = state.score;
     elements.correctCount.textContent = `${correctAnswers} / ${state.answers.length}`;
-    elements.finalMode.textContent = MODE_LABELS[state.settings.mode];
+    elements.finalMode.textContent = buildSessionLabel(state.settings);
     renderReview();
     showScreen("result");
   }
@@ -877,7 +898,7 @@
       return;
     }
 
-    elements.gameModeTitle.textContent = MODE_LABELS[state.settings.mode];
+    elements.gameModeTitle.textContent = buildSessionLabel(state.settings);
     elements.battleBar.classList.toggle("hidden", state.settings.mode !== "battle");
     elements.timerPill.classList.toggle("hidden", state.settings.mode !== "challenge");
 
