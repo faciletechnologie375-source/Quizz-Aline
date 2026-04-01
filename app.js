@@ -1319,13 +1319,13 @@
       }
 
       if (isCorrect) {
-        playTone(context, 660, 0, 0.08, "triangle", 0.05);
-        playTone(context, 880, 0.09, 0.12, "triangle", 0.06);
+        playTone(context, 660, 0, 0.08, "triangle", 0.11);
+        playTone(context, 880, 0.09, 0.12, "triangle", 0.13);
         return;
       }
 
-      playTone(context, 220, 0, 0.12, "sawtooth", 0.06);
-      playTone(context, 170, 0.1, 0.16, "sawtooth", 0.05);
+      playTone(context, 220, 0, 0.12, "sawtooth", 0.12);
+      playTone(context, 170, 0.1, 0.16, "sawtooth", 0.1);
     } catch (error) {
       // If the browser blocks audio, gameplay should continue silently.
     }
