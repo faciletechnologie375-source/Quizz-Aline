@@ -177,6 +177,7 @@
     questionGoal: null,
     questionStats: {},
     paused: false,
+    audioContext: null,
   };
 
   function init() {
@@ -554,6 +555,7 @@
     state.selectedChoice = choice;
     const isCorrect = choice === state.currentQuestion.answer;
     const earnedPoints = computePoints(isCorrect);
+    playFeedbackSound(isCorrect);
 
     state.score += earnedPoints;
     if (state.settings.mode === "battle") {
@@ -595,15 +597,16 @@
       return;
     }
 
-    elements.nextButton.classList.remove("hidden");
-
-    if (state.settings.mode !== "learning") {
+    if (isCorrect) {
       state.autoNextId = window.setTimeout(() => {
-        if (state.settings.mode !== "challenge" && state.answered && !state.paused) {
+        if (state.answered && !state.paused) {
           goToNextQuestion();
         }
-      }, 1800);
+      }, 1200);
+      return;
     }
+
+    elements.nextButton.classList.remove("hidden");
   }
 
   function skipQuestion() {
@@ -616,6 +619,7 @@
     state.selectedChoice = "Passée";
     state.feedbackText = `Question passée. La bonne réponse était ${state.currentQuestion.answer}. Capitale : ${state.currentQuestion.item.capital}. ${state.currentQuestion.item.fact}`;
     state.feedbackTone = "error";
+    playFeedbackSound(false);
 
     state.answers.push({
       prompt: state.currentQuestion.prompt,
@@ -1296,6 +1300,55 @@
       hash = (hash * 31 + password.charCodeAt(index)) >>> 0;
     }
     return String(hash);
+  }
+
+  function playFeedbackSound(isCorrect) {
+    try {
+      const AudioContextImpl = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextImpl) {
+        return;
+      }
+
+      if (!state.audioContext) {
+        state.audioContext = new AudioContextImpl();
+      }
+
+      const context = state.audioContext;
+      if (context.state === "suspended") {
+        context.resume();
+      }
+
+      if (isCorrect) {
+        playTone(context, 660, 0, 0.08, "triangle", 0.05);
+        playTone(context, 880, 0.09, 0.12, "triangle", 0.06);
+        return;
+      }
+
+      playTone(context, 220, 0, 0.12, "sawtooth", 0.06);
+      playTone(context, 170, 0.1, 0.16, "sawtooth", 0.05);
+    } catch (error) {
+      // If the browser blocks audio, gameplay should continue silently.
+    }
+  }
+
+  function playTone(context, frequency, delay, duration, type, volume) {
+    const oscillator = context.createOscillator();
+    const gainNode = context.createGain();
+    const startAt = context.currentTime + delay;
+    const endAt = startAt + duration;
+
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, startAt);
+
+    gainNode.gain.setValueAtTime(0.0001, startAt);
+    gainNode.gain.exponentialRampToValueAtTime(volume, startAt + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, endAt);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(context.destination);
+
+    oscillator.start(startAt);
+    oscillator.stop(endAt + 0.01);
   }
 
   function showScreen(screenName) {
