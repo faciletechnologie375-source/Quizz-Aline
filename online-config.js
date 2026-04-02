@@ -6,7 +6,7 @@ window.QUIZ_ONLINE_CONFIG = {
   serviceUrl: "https://likdzjbyoicgsdwgsjid.supabase.co",
 
   // Cle "anon" Supabase (Project Settings > API > anon public key)
-  anonKey: "likdzjbyoicgsdwgsjid",
+  anonKey: "",
 
   // Nom de la table SQL qui stocke les scores.
   table: "quiz_leaderboard",
