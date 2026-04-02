@@ -33,6 +33,7 @@
     accountStatus: document.getElementById("account-status"),
     startButton: document.getElementById("start-button"),
     startNotice: document.getElementById("start-notice"),
+    uniqueCounter: document.getElementById("unique-counter"),
     gameModeTitle: document.getElementById("game-mode-title"),
     scoreValue: document.getElementById("score-value"),
     progressValue: document.getElementById("progress-value"),
@@ -237,8 +238,41 @@
     if (elements.leaderboardRefreshButtonResult) {
       elements.leaderboardRefreshButtonResult.addEventListener("click", refreshLeaderboardNow);
     }
+    elements.difficultySelect.addEventListener("change", updateUniqueCounterPreview);
+    elements.continentSelect.addEventListener("change", updateUniqueCounterPreview);
+    elements.themeSelect.addEventListener("change", updateUniqueCounterPreview);
+    elements.modeSelect.addEventListener("change", updateUniqueCounterPreview);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("beforeunload", saveGameProgress);
+    updateUniqueCounterPreview();
+  }
+
+  function updateUniqueCounterPreview() {
+    const settings = {
+      difficulty: elements.difficultySelect.value,
+      continent: elements.continentSelect.value,
+      theme: elements.themeSelect.value,
+      mode: elements.modeSelect.value,
+    };
+
+    const pool = buildPool(settings);
+    const queueSize = buildQuestionQueue(pool, settings).length;
+
+    if (!queueSize) {
+      elements.uniqueCounter.textContent = "Questions uniques disponibles : 0. Elargis les filtres.";
+      return;
+    }
+
+    if (settings.mode === "challenge") {
+      const label =
+        queueSize >= 10
+          ? `Questions uniques disponibles : ${queueSize}. Le mode défi utilisera 10 questions sans répétition.`
+          : `Questions uniques disponibles : ${queueSize}. Il faut au moins 10 pour lancer le mode défi.`;
+      elements.uniqueCounter.textContent = label;
+      return;
+    }
+
+    elements.uniqueCounter.textContent = `Questions uniques disponibles : ${queueSize}. Cette session ira jusqu'à épuisement sans répétition.`;
   }
 
   function onLeaderboardModeChange(event) {
