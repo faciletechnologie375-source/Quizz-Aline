@@ -1085,15 +1085,15 @@
   function updateRecords() {
     updateCurrentProfile((profile) => {
       const nextProfile = { ...profile };
-      nextProfile.bestScore = Math.max(profile.bestScore || 0, state.score);
+      // Additionner le nouveau score au score existant
+      nextProfile.bestScore = (profile.bestScore || 0) + state.score;
       const modeScores = { ...(profile.bestByMode || {}) };
-      modeScores[state.settings.mode] = Math.max(modeScores[state.settings.mode] || 0, state.score);
+      // Additionner le score pour le mode actuel
+      modeScores[state.settings.mode] = (modeScores[state.settings.mode] || 0) + state.score;
       nextProfile.bestByMode = modeScores;
       if (state.settings.mode === "challenge") {
-        nextProfile.bestChallenge = Math.max(
-          profile.bestChallenge || 0,
-          state.score
-        );
+        // Additionner le score challenge
+        nextProfile.bestChallenge = (profile.bestChallenge || 0) + state.score;
       }
       return nextProfile;
     });
@@ -2088,26 +2088,17 @@
     // Fusionner les deux profils pour accumuler les scores et l'historique
     const mergedProfile = { ...localProfile };
 
-    // Prendre le meilleur score global entre les deux
-    mergedProfile.bestScore = Math.max(
-      localProfile.bestScore || 0,
-      remoteProfile.bestScore || 0
-    );
+    // Additionner les scores globaux des deux appareils
+    mergedProfile.bestScore = (localProfile.bestScore || 0) + (remoteProfile.bestScore || 0);
 
-    // Prendre le meilleur score challenge entre les deux
-    mergedProfile.bestChallenge = Math.max(
-      localProfile.bestChallenge || 0,
-      remoteProfile.bestChallenge || 0
-    );
+    // Additionner les scores challenge
+    mergedProfile.bestChallenge = (localProfile.bestChallenge || 0) + (remoteProfile.bestChallenge || 0);
 
-    // Fusionner les meilleurs scores par mode (gardant le meilleur pour chaque mode)
+    // Additionner les meilleurs scores par mode
     const mergedByMode = { ...localProfile.bestByMode };
     const remoteModeScores = remoteProfile.bestByMode || {};
     for (const mode in remoteModeScores) {
-      mergedByMode[mode] = Math.max(
-        mergedByMode[mode] || 0,
-        remoteModeScores[mode] || 0
-      );
+      mergedByMode[mode] = (mergedByMode[mode] || 0) + (remoteModeScores[mode] || 0);
     }
     mergedProfile.bestByMode = mergedByMode;
 
