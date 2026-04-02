@@ -1161,19 +1161,13 @@
       return;
     }
 
-    if (hasOnlineAccountsConfig()) {
-      const remoteExisting = await fetchRemoteAccount(credentials.key);
-      if (remoteExisting) {
-        updateAuthStatus(
-          "Ce nom d'utilisateur existe déjà. Connecte-toi à la place.",
-          "error"
-        );
-        return;
-      }
-    }
+    const passwordHash = hashPassword(credentials.password);
+    const credentialsCheck = await checkIfCredentialsAlreadyUsed(
+      credentials.key,
+      passwordHash
+    );
 
-    const users = getUsers();
-    if (users[credentials.key]) {
+    if (credentialsCheck.usernameExists) {
       updateAuthStatus(
         "Ce nom d'utilisateur existe déjà. Connecte-toi à la place.",
         "error"
@@ -1181,9 +1175,18 @@
       return;
     }
 
+    if (credentialsCheck.passwordExists) {
+      updateAuthStatus(
+        "Ce mot de passe est déjà utilisé par un autre compte. Choisis un mot de passe différent.",
+        "error"
+      );
+      return;
+    }
+
+    const users = getUsers();
     users[credentials.key] = {
       displayName: credentials.displayName,
-      passwordHash: hashPassword(credentials.password),
+      passwordHash: passwordHash,
       bestScore: 0,
       bestChallenge: 0,
       bestByMode: {
@@ -1226,9 +1229,14 @@
       if (remote) {
         const remoteProfile = remoteAccountToLocalProfile(remote, credentials.displayName);
         if (remoteProfile.passwordHash === passwordHash) {
-          users[credentials.key] = remoteProfile;
+          // Fusionner les profils local et distant pour accumuler les scores
+          if (profile && profile.bestScore !== undefined) {
+            profile = mergeLocalAndRemoteProfile(profile, remoteProfile);
+          } else {
+            profile = remoteProfile;
+          }
+          users[credentials.key] = profile;
           setUsers(users);
-          profile = remoteProfile;
         }
       }
     }
@@ -1925,6 +1933,74 @@
     };
   }
 
+  async function checkIfCredentialsAlreadyUsed(username, passwordHash) {
+    const result = {
+      usernameExists: false,
+      passwordExists: false,
+      usernameFromLocalDb: false,
+      usernameFromRemoteDb: false,
+      passwordFromLocalDb: false,
+      passwordFromRemoteDb: false,
+    };
+
+    // Vérifier localement
+    const localUsers = getUsers();
+    if (localUsers[username]) {
+      result.usernameExists = true;
+      result.usernameFromLocalDb = true;
+    }
+
+    // Vérifier si le hash du mot de passe existe localement
+    for (const key in localUsers) {
+      if (localUsers[key].passwordHash === passwordHash) {
+        result.passwordExists = true;
+        result.passwordFromLocalDb = true;
+        break;
+      }
+    }
+
+    // Vérifier sur le serveur distant
+    if (hasOnlineAccountsConfig()) {
+      try {
+        // Vérifier username sur serveur
+        const usernameResponse = await fetch(
+          getOnlineAccountsEndpoint(
+            `select=username&username=eq.${encodeURIComponent(username)}&limit=1`
+          ),
+          { method: "GET", headers: getOnlineAccountsHeaders() }
+        );
+
+        if (usernameResponse.ok) {
+          const rows = await usernameResponse.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            result.usernameExists = true;
+            result.usernameFromRemoteDb = true;
+          }
+        }
+
+        // Vérifier password_hash sur serveur
+        const passwordResponse = await fetch(
+          getOnlineAccountsEndpoint(
+            `select=password_hash&password_hash=eq.${encodeURIComponent(passwordHash)}&limit=1`
+          ),
+          { method: "GET", headers: getOnlineAccountsHeaders() }
+        );
+
+        if (passwordResponse.ok) {
+          const rows = await passwordResponse.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            result.passwordExists = true;
+            result.passwordFromRemoteDb = true;
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification des identifiants:", error);
+      }
+    }
+
+    return result;
+  }
+
   async function fetchRemoteAccount(username) {
     if (!hasOnlineAccountsConfig()) {
       return null;
@@ -2006,6 +2082,76 @@
       savedGame: remote.saved_game || null,
       history: Array.isArray(remote.history) ? remote.history : [],
     };
+  }
+
+  function mergeLocalAndRemoteProfile(localProfile, remoteProfile) {
+    // Fusionner les deux profils pour accumuler les scores et l'historique
+    const mergedProfile = { ...localProfile };
+
+    // Prendre le meilleur score global entre les deux
+    mergedProfile.bestScore = Math.max(
+      localProfile.bestScore || 0,
+      remoteProfile.bestScore || 0
+    );
+
+    // Prendre le meilleur score challenge entre les deux
+    mergedProfile.bestChallenge = Math.max(
+      localProfile.bestChallenge || 0,
+      remoteProfile.bestChallenge || 0
+    );
+
+    // Fusionner les meilleurs scores par mode (gardant le meilleur pour chaque mode)
+    const mergedByMode = { ...localProfile.bestByMode };
+    const remoteModeScores = remoteProfile.bestByMode || {};
+    for (const mode in remoteModeScores) {
+      mergedByMode[mode] = Math.max(
+        mergedByMode[mode] || 0,
+        remoteModeScores[mode] || 0
+      );
+    }
+    mergedProfile.bestByMode = mergedByMode;
+
+    // Fusionner l'historique des parties
+    const localHistory = Array.isArray(localProfile.history)
+      ? localProfile.history
+      : [];
+    const remoteHistory = Array.isArray(remoteProfile.history)
+      ? remoteProfile.history
+      : [];
+
+    // Créer une Set des dates de l'historique local pour éviter les doublons
+    const localHistoryDates = new Set(
+      localHistory.map((entry) => entry.date || "")
+    );
+
+    // Ajouter les parties distantes qui ne sont pas déjà dans l'historique local
+    const mergedHistory = [...localHistory];
+    for (const remoteEntry of remoteHistory) {
+      if (!localHistoryDates.has(remoteEntry.date || "")) {
+        mergedHistory.push(remoteEntry);
+      }
+    }
+
+    // Trier l'historique par date (plus récent en premier)
+    mergedHistory.sort(
+      (a, b) => new Date(b.date || 0) - new Date(a.date || 0)
+    );
+
+    mergedProfile.history = mergedHistory;
+
+    // Garder la partie sauvegardée la plus récente si elle existe
+    const localSaveDate = localProfile.savedGame
+      ? new Date(localProfile.savedGame.timestamp || 0)
+      : null;
+    const remoteSaveDate = remoteProfile.savedGame
+      ? new Date(remoteProfile.savedGame.timestamp || 0)
+      : null;
+
+    if (remoteSaveDate && (!localSaveDate || remoteSaveDate > localSaveDate)) {
+      mergedProfile.savedGame = remoteProfile.savedGame;
+    }
+
+    return mergedProfile;
   }
 
   function startOnlineLeaderboardSync() {
