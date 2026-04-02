@@ -480,6 +480,9 @@
       }
 
       candidates.push({ item, type: "capital", key: `capital:${item.country}` });
+      candidates.push({ item, type: "flag", key: `flag:${item.country}` });
+      candidates.push({ item, type: "fact", key: `fact:${item.country}` });
+      candidates.push({ item, type: "hint", key: `hint:${item.country}` });
       if (item.monument) {
         candidates.push({ item, type: "monument", key: `monument:${item.country}` });
       }
@@ -546,6 +549,18 @@
       return `Dans quel pays se trouve ${item.monument} ?`;
     }
 
+    if (type === "flag") {
+      return "Quel pays correspond à ce drapeau ?";
+    }
+
+    if (type === "fact") {
+      return `Quel pays correspond à cet indice : ${item.fact}`;
+    }
+
+    if (type === "hint") {
+      return `Quel pays est visé par cet indice : ${item.hint}`;
+    }
+
     return `Quel pays a pour capitale ${item.capital} ?`;
   }
 
@@ -605,7 +620,7 @@
     elements.scoreValue.textContent = state.score;
     elements.progressValue.textContent = progressLabel;
     elements.badgeContinent.textContent = item.continent;
-    elements.badgeType.textContent = THEME_LABELS[type === "capital" ? "capitals" : "monuments"];
+    elements.badgeType.textContent = getQuestionTypeLabel(type);
     elements.badgeDifficulty.textContent = DIFFICULTY_LABELS[item.difficulty];
     elements.questionText.textContent = prompt;
     elements.questionSubtext.textContent = buildThemeSubtext();
@@ -680,7 +695,29 @@
     elements.flagCaption.textContent =
       type === "monument"
         ? `Monument : ${item.monument}`
+        : type === "flag"
+          ? "Indice : observe le drapeau"
+          : type === "fact"
+            ? "Indice : fait culturel"
+            : type === "hint"
+              ? "Indice : aide contextuelle"
         : `Capitale : ${item.capital}`;
+  }
+
+  function getQuestionTypeLabel(type) {
+    if (type === "monument") {
+      return "Monuments";
+    }
+    if (type === "flag") {
+      return "Drapeaux";
+    }
+    if (type === "fact") {
+      return "Faits";
+    }
+    if (type === "hint") {
+      return "Indices";
+    }
+    return "Capitales";
   }
 
   function getCountryCode(country) {
