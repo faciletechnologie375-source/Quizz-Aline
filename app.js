@@ -769,6 +769,33 @@
     saveGameProgress();
   }
 
+  function incrementBestScore(points) {
+    // Ajouter les points au meilleur score en temps réel pendant le jeu
+    updateCurrentProfile((profile) => {
+      const nextProfile = { ...profile };
+      // Ajouter au score global
+      nextProfile.bestScore = (profile.bestScore || 0) + points;
+      
+      // Ajouter aussi au score du mode actuel
+      const modeScores = { ...(profile.bestByMode || {}) };
+      modeScores[state.settings.mode] = (modeScores[state.settings.mode] || 0) + points;
+      nextProfile.bestByMode = modeScores;
+      
+      // Si on est en mode challenge, ajouter aussi au bestChallenge
+      if (state.settings.mode === "challenge") {
+        nextProfile.bestChallenge = (profile.bestChallenge || 0) + points;
+      }
+      
+      return nextProfile;
+    });
+
+    // Mettre à jour l'affichage du meilleur score immédiatement
+    const profile = getCurrentProfile();
+    if (profile && elements.bestScore) {
+      elements.bestScore.textContent = profile.bestScore || 0;
+    }
+  }
+
   function submitAnswer(choice) {
     if (state.answered || !state.currentQuestion || state.paused) {
       return;
@@ -782,6 +809,9 @@
     playFeedbackSound(isCorrect);
 
     state.score += earnedPoints;
+    // Mettre à jour le meilleur score en temps réel
+    incrementBestScore(earnedPoints);
+    
     if (state.settings.mode === "battle") {
       simulateBotRound();
     }
@@ -1085,16 +1115,8 @@
   function updateRecords() {
     updateCurrentProfile((profile) => {
       const nextProfile = { ...profile };
-      // Additionner le nouveau score au score existant
-      nextProfile.bestScore = (profile.bestScore || 0) + state.score;
-      const modeScores = { ...(profile.bestByMode || {}) };
-      // Additionner le score pour le mode actuel
-      modeScores[state.settings.mode] = (modeScores[state.settings.mode] || 0) + state.score;
-      nextProfile.bestByMode = modeScores;
-      if (state.settings.mode === "challenge") {
-        // Additionner le score challenge
-        nextProfile.bestChallenge = (profile.bestChallenge || 0) + state.score;
-      }
+      // Tous les scores ont déjà été mis à jour en temps réel via incrementBestScore()
+      // On ne les modifie pas ici pour éviter de doubler l'ajout
       return nextProfile;
     });
     loadRecords();
