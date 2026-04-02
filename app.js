@@ -1323,7 +1323,7 @@
     loadRecords();
     elements.startButton.disabled = !profile;
     elements.resumeButton.classList.toggle("hidden", !hasSavedGame);
-    elements.resetScoreButton.classList.toggle("hidden", !profile);
+    elements.resetScoreButton.disabled = !profile;
     elements.logoutButton.classList.toggle("hidden", !profile);
     elements.usernameInput.value = profile ? profile.displayName : "";
     elements.passwordInput.value = "";
