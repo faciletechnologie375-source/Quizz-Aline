@@ -157,6 +157,50 @@
           grid-template-columns: 1fr;
         }
       }
+
+      .guide {
+        margin-top: 16px;
+        background: #f0f8f0;
+        border: 1px solid #b8ddb8;
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+
+      .guide-title {
+        margin: 0 0 8px;
+        font-weight: 700;
+        font-size: 1rem;
+        color: #0e4b50;
+      }
+
+      .steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        font-size: 0.89rem;
+        line-height: 1.45;
+      }
+
+      .steps li {
+        padding-left: 0;
+      }
+
+      .allow {
+        background: #ffe066;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-style: normal;
+        color: #3a2500;
+      }
+
+      .compat {
+        margin: 10px 0 0;
+        font-size: 0.78rem;
+        opacity: 0.65;
+      }
     </style>
   </head>
   <body>
@@ -186,9 +230,37 @@
           </a>
         </div>
 
-        <p class="help">
-          Si besoin: Parametres Android > Securite > Autoriser les sources inconnues.
-        </p>
+        <div class="guide">
+          <p class="guide-title">Comment installer sur Android</p>
+          <ol class="steps">
+            <li>
+              <b>1. Télécharge</b> l'APK ci-dessus — il arrive dans ton dossier
+              <em>Téléchargements</em>.
+            </li>
+            <li>
+              <b>2. Ouvre le fichier</b> depuis la notification de téléchargement
+              ou via ton gestionnaire de fichiers.
+            </li>
+            <li>
+              <b>3. Play Protect bloque ?</b> Android affiche une alerte de
+              sécurité. Cherche le bouton
+              <strong class="allow">"Installer quand même"</strong> (ou
+              <em>"Install anyway"</em>) — il est parfois tout en bas de l'écran.
+              Appuie dessus.
+            </li>
+            <li>
+              <b>4. "Sources inconnues" ?</b> Va dans
+              <em>Paramètres &rsaquo; Applications &rsaquo; [Chrome ou Fichiers] &rsaquo;
+              Installer des applis inconnues</em> et active l'option. Reviens
+              ensuite et installe.
+            </li>
+            <li>
+              <b>5. Désinstalle l'ancienne version</b> si tu en avais déjà une
+              avant d'installer celle-ci.
+            </li>
+          </ol>
+          <p class="compat">Android 7 ou plus récent requis &bull; Testé sur Android 11</p>
+        </div>
       </section>
 
       <section class="preview">
