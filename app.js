@@ -191,6 +191,7 @@
     recentQuestionKeys: [],
     questionGoal: null,
     questionStats: {},
+    questionQueue: [],
     paused: false,
     audioContext: null,
     onlineLeaderboard: [],
@@ -316,7 +317,18 @@
     state.recentQuestionKeys = [];
     state.questionStats = {};
     state.settings = settings;
-    state.questionGoal = settings.mode === "challenge" ? 10 : null;
+    state.questionGoal = null;
+    state.questionQueue = buildQuestionQueue(basePool, settings);
+
+    if (settings.mode === "challenge" && state.questionQueue.length < 10) {
+      showStartNotice(
+        "Pas assez de questions uniques pour le mode défi (10). Elargis les filtres.",
+        "error"
+      );
+      return;
+    }
+
+    state.questionGoal = settings.mode === "challenge" ? 10 : state.questionQueue.length;
     state.timeLeft = 60;
     state.paused = false;
     state.questions = [];
@@ -361,13 +373,22 @@
   }
 
   function appendNextQuestion(pool, settings) {
-    const nextQuestion = generateQuestion(
-      pool,
-      settings,
-      state.recentQuestionKeys,
-      state.questionStats,
-      state.questions.length
-    );
+    const nextSeed = state.questionQueue.shift();
+    const sequenceNumber = state.questions.length;
+
+    if (!nextSeed) {
+      return;
+    }
+
+    const nextQuestion = {
+      id: `${nextSeed.item.country}-${nextSeed.type}-${sequenceNumber}`,
+      key: nextSeed.key,
+      item: nextSeed.item,
+      type: nextSeed.type,
+      prompt: buildPrompt(nextSeed.type, nextSeed.item),
+      answer: nextSeed.item.country,
+      options: buildOptions(pool, nextSeed.item),
+    };
 
     if (!nextQuestion) {
       return;
@@ -381,6 +402,31 @@
     if (state.recentQuestionKeys.length > maxRecent) {
       state.recentQuestionKeys = state.recentQuestionKeys.slice(-maxRecent);
     }
+  }
+
+  function buildQuestionQueue(pool, settings) {
+    const candidates = [];
+
+    pool.forEach((item) => {
+      if (settings.theme === "capitals") {
+        candidates.push({ item, type: "capital", key: `capital:${item.country}` });
+        return;
+      }
+
+      if (settings.theme === "monuments") {
+        if (item.monument) {
+          candidates.push({ item, type: "monument", key: `monument:${item.country}` });
+        }
+        return;
+      }
+
+      candidates.push({ item, type: "capital", key: `capital:${item.country}` });
+      if (item.monument) {
+        candidates.push({ item, type: "monument", key: `monument:${item.country}` });
+      }
+    });
+
+    return shuffle(candidates);
   }
 
   function generateQuestion(pool, settings, recentQuestionKeys, questionStats, sequenceNumber) {
@@ -1100,6 +1146,7 @@
     state.recentQuestionKeys = snapshot.recentQuestionKeys || [];
     state.questionGoal = snapshot.questionGoal || null;
     state.questionStats = snapshot.questionStats || {};
+    state.questionQueue = snapshot.questionQueue || [];
     state.paused = Boolean(snapshot.paused);
 
     if (!state.settings || !state.questions.length) {
@@ -1382,6 +1429,7 @@
         recentQuestionKeys: state.recentQuestionKeys,
         questionGoal: state.questionGoal,
         questionStats: state.questionStats,
+        questionQueue: state.questionQueue,
         paused: state.paused,
       },
     }));
