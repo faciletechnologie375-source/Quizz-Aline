@@ -63,6 +63,45 @@ with check (true);
 
 Une fois active, chaque joueur publie son meilleur score et voit les scores des autres joueurs (tri du meilleur au pire).
 
+### Comptes multi-appareils (meme identifiant sur plusieurs appareils)
+
+Ajoute aussi cette table pour synchroniser les comptes (nom, mot de passe hash, progression):
+
+```sql
+create table if not exists public.quiz_accounts (
+	username text primary key,
+	display_name text not null,
+	password_hash text not null,
+	best_score integer not null default 0,
+	best_challenge integer not null default 0,
+	best_by_mode jsonb not null default '{}'::jsonb,
+	history jsonb not null default '[]'::jsonb,
+	saved_game jsonb,
+	updated_at timestamptz not null default now()
+);
+
+alter table public.quiz_accounts enable row level security;
+
+create policy "Public read accounts"
+on public.quiz_accounts
+for select
+to anon
+using (true);
+
+create policy "Public upsert accounts"
+on public.quiz_accounts
+for insert
+to anon
+with check (true);
+
+create policy "Public update accounts"
+on public.quiz_accounts
+for update
+to anon
+using (true)
+with check (true);
+```
+
 ## Hebergement
 
 Le projet est publie sur GitHub Pages depuis la branche `main`. Chaque `git push` sur `main` redeploie le site automatiquement. Voir `DEPLOY.md`.

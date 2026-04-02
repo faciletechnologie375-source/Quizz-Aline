@@ -11,6 +11,18 @@
     table: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.table) || "quiz_leaderboard",
   };
 
+  const ONLINE_ACCOUNTS = {
+    enabled: Boolean(
+      window.QUIZ_ONLINE_CONFIG &&
+      (window.QUIZ_ONLINE_CONFIG.accountsEnabled !== undefined
+        ? window.QUIZ_ONLINE_CONFIG.accountsEnabled
+        : window.QUIZ_ONLINE_CONFIG.enabled)
+    ),
+    serviceUrl: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.serviceUrl) || "",
+    anonKey: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.anonKey) || "",
+    table: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.accountsTable) || "quiz_accounts",
+  };
+
   const GLOBAL_COUNTRIES_API =
     "https://restcountries.com/v3.1/all?fields=name,translations,capital,continents,latlng,population,cca2";
 
@@ -207,6 +219,8 @@
     onlinePollId: null,
     onlineStatus: "offline",
     leaderboardModeFilter: "all",
+    onlineAccountsStatus: "offline",
+    accountSyncId: null,
   };
 
   function init() {
@@ -1141,10 +1155,21 @@
     endGame();
   }
 
-  function createAccount() {
+  async function createAccount() {
     const credentials = getCredentials();
     if (!credentials) {
       return;
+    }
+
+    if (hasOnlineAccountsConfig()) {
+      const remoteExisting = await fetchRemoteAccount(credentials.key);
+      if (remoteExisting) {
+        updateAuthStatus(
+          "Ce nom d'utilisateur existe déjà. Connecte-toi à la place.",
+          "error"
+        );
+        return;
+      }
     }
 
     const users = getUsers();
@@ -1171,6 +1196,11 @@
       history: [],
     };
     setUsers(users);
+
+    if (hasOnlineAccountsConfig()) {
+      await upsertRemoteAccount(credentials.key, users[credentials.key]);
+    }
+
     setCurrentUser(credentials.key);
     updateAuthUi();
     updateAuthStatus(
@@ -1181,16 +1211,35 @@
     syncCurrentUserToOnlineLeaderboard();
   }
 
-  function login() {
+  async function login() {
     const credentials = getCredentials();
     if (!credentials) {
       return;
     }
 
-    const profile = getUsers()[credentials.key];
-    if (!profile || profile.passwordHash !== hashPassword(credentials.password)) {
+    const users = getUsers();
+    let profile = users[credentials.key] || null;
+    const passwordHash = hashPassword(credentials.password);
+
+    if ((!profile || profile.passwordHash !== passwordHash) && hasOnlineAccountsConfig()) {
+      const remote = await fetchRemoteAccount(credentials.key);
+      if (remote) {
+        const remoteProfile = remoteAccountToLocalProfile(remote, credentials.displayName);
+        if (remoteProfile.passwordHash === passwordHash) {
+          users[credentials.key] = remoteProfile;
+          setUsers(users);
+          profile = remoteProfile;
+        }
+      }
+    }
+
+    if (!profile || profile.passwordHash !== passwordHash) {
       updateAuthStatus("Identifiants invalides.", "error");
       return;
+    }
+
+    if (hasOnlineAccountsConfig()) {
+      await upsertRemoteAccount(credentials.key, profile);
     }
 
     setCurrentUser(credentials.key);
@@ -1215,7 +1264,7 @@
     fetchOnlineLeaderboard();
   }
 
-  function resetProgress() {
+  async function resetProgress() {
     if (!state.currentUser) {
       return;
     }
@@ -1270,6 +1319,11 @@
       history: [],
       savedGame: null,
     }));
+
+    const updatedProfile = getCurrentProfile();
+    if (updatedProfile && hasOnlineAccountsConfig()) {
+      await upsertRemoteAccount(state.currentUser, updatedProfile);
+    }
 
     showScreen("start");
     clearStartNotice();
@@ -1837,9 +1891,22 @@
     );
   }
 
+  function hasOnlineAccountsConfig() {
+    return Boolean(
+      ONLINE_ACCOUNTS.enabled &&
+      ONLINE_ACCOUNTS.serviceUrl &&
+      ONLINE_ACCOUNTS.anonKey
+    );
+  }
+
   function getOnlineEndpoint(query) {
     const baseUrl = ONLINE_LEADERBOARD.serviceUrl.replace(/\/$/, "");
     return `${baseUrl}/rest/v1/${ONLINE_LEADERBOARD.table}${query ? `?${query}` : ""}`;
+  }
+
+  function getOnlineAccountsEndpoint(query) {
+    const baseUrl = ONLINE_ACCOUNTS.serviceUrl.replace(/\/$/, "");
+    return `${baseUrl}/rest/v1/${ONLINE_ACCOUNTS.table}${query ? `?${query}` : ""}`;
   }
 
   function getOnlineHeaders() {
@@ -1847,6 +1914,97 @@
       apikey: ONLINE_LEADERBOARD.anonKey,
       Authorization: `Bearer ${ONLINE_LEADERBOARD.anonKey}`,
       "Content-Type": "application/json",
+    };
+  }
+
+  function getOnlineAccountsHeaders() {
+    return {
+      apikey: ONLINE_ACCOUNTS.anonKey,
+      Authorization: `Bearer ${ONLINE_ACCOUNTS.anonKey}`,
+      "Content-Type": "application/json",
+    };
+  }
+
+  async function fetchRemoteAccount(username) {
+    if (!hasOnlineAccountsConfig()) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        getOnlineAccountsEndpoint(
+          `select=username,display_name,password_hash,best_score,best_challenge,best_by_mode,history,saved_game&username=eq.${encodeURIComponent(username)}&limit=1`
+        ),
+        {
+          method: "GET",
+          headers: getOnlineAccountsHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const rows = await response.json();
+      return Array.isArray(rows) && rows.length ? rows[0] : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function upsertRemoteAccount(username, profile) {
+    if (!hasOnlineAccountsConfig() || !profile) {
+      return false;
+    }
+
+    const payload = [
+      {
+        username,
+        display_name: profile.displayName || username,
+        password_hash: profile.passwordHash || "",
+        best_score: profile.bestScore || 0,
+        best_challenge: profile.bestChallenge || 0,
+        best_by_mode: profile.bestByMode || {
+          standard: 0,
+          learning: 0,
+          challenge: 0,
+          battle: 0,
+        },
+        history: Array.isArray(profile.history) ? profile.history : [],
+        saved_game: profile.savedGame || null,
+      },
+    ];
+
+    try {
+      const response = await fetch(getOnlineAccountsEndpoint("on_conflict=username"), {
+        method: "POST",
+        headers: {
+          ...getOnlineAccountsHeaders(),
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function remoteAccountToLocalProfile(remote, fallbackDisplayName) {
+    return {
+      displayName: remote.display_name || fallbackDisplayName || remote.username || "Joueur",
+      passwordHash: remote.password_hash || "",
+      bestScore: remote.best_score || 0,
+      bestChallenge: remote.best_challenge || 0,
+      bestByMode: remote.best_by_mode || {
+        standard: 0,
+        learning: 0,
+        challenge: 0,
+        battle: 0,
+      },
+      savedGame: remote.saved_game || null,
+      history: Array.isArray(remote.history) ? remote.history : [],
     };
   }
 
@@ -2063,6 +2221,29 @@
 
     users[state.currentUser] = updater(currentProfile);
     setUsers(users);
+
+    if (hasOnlineAccountsConfig()) {
+      scheduleRemoteAccountSync();
+    }
+  }
+
+  function scheduleRemoteAccountSync() {
+    if (!state.currentUser) {
+      return;
+    }
+
+    if (state.accountSyncId) {
+      clearTimeout(state.accountSyncId);
+    }
+
+    state.accountSyncId = window.setTimeout(async () => {
+      state.accountSyncId = null;
+      const profile = getCurrentProfile();
+      if (!profile) {
+        return;
+      }
+      await upsertRemoteAccount(state.currentUser, profile);
+    }, 1200);
   }
 
   function hashPassword(password) {
