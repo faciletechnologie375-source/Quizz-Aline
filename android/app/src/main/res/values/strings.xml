@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cap sur le Quiz</string>
+    <string name="title_activity_main">Cap sur le Quiz</string>
+    <string name="package_name">com.capquiz.aline</string>
+    <string name="custom_url_scheme">com.capquiz.aline</string>
+</resources>

@@ -1,0 +1,12 @@
+node_modules/
+www/
+.gradle/
+local.properties
+.DS_Store
+Thumbs.db
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android-release.keystore
+keystore.properties

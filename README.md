@@ -106,6 +106,169 @@ with check (true);
 
 Le projet est publie sur GitHub Pages depuis la branche `main`. Chaque `git push` sur `main` redeploie le site automatiquement. Voir `DEPLOY.md`.
 
+## Distribution par lien direct (sans Play Store)
+
+L'application Android peut etre telechargee gratuitement via un lien direct.
+
+- Page de telechargement: `https://faciletechnologie375-source.github.io/Quizz-Aline/telecharger.html`
+- Lien direct APK: `https://faciletechnologie375-source.github.io/Quizz-Aline/downloads/latest.apk`
+
+### Mettre a jour l'APK telechargeable
+
+1. Genere un nouvel APK release:
+
+```bash
+npm run mobile:build:release
+```
+
+2. Remplace les fichiers dans `downloads/`:
+
+- `downloads/cap-sur-le-quiz-release-vX.Y.apk`
+- `downloads/latest.apk` (toujours la derniere version)
+
+3. Fais un commit puis un push sur `main`.
+
+Une fois GitHub Pages redeploye, le meme lien `downloads/latest.apk` distribuera automatiquement la nouvelle version.
+
+## Application mobile (Android)
+
+Le projet est maintenant prepare avec Capacitor pour Android.
+
+### Prerequis
+
+- Node.js installe
+- Android Studio installe
+- SDK Android configure dans Android Studio
+
+### Commandes utiles
+
+```bash
+npm install
+npm run mobile:doctor
+npm run mobile:sync
+npm run mobile:open:android
+npm run mobile:build:debug
+npm run mobile:build:release
+npm run mobile:build:bundle
+```
+
+Explication rapide:
+
+- `mobile:sync` copie les fichiers web vers `www/` puis synchronise le projet Android.
+- `mobile:open:android` ouvre directement le projet natif dans Android Studio.
+- `mobile:doctor` verifie la presence de Java, keytool et Android Studio.
+- `mobile:build:debug` genere un APK debug.
+- `mobile:build:release` genere un APK release.
+- `mobile:build:bundle` genere un Android App Bundle (`.aab`) pour le Play Store.
+
+### Signature Android release
+
+Pour une vraie publication Play Store, il faut un keystore de signature.
+
+1. Cree le keystore:
+
+```bash
+npm run mobile:keystore
+```
+
+2. Copie `keystore.properties.example` vers `keystore.properties`
+3. Renseigne les vraies valeurs:
+
+```properties
+storeFile=../../android-release.keystore
+storePassword=VOTRE_MOT_DE_PASSE
+keyAlias=capquiz
+keyPassword=VOTRE_MOT_DE_PASSE
+```
+
+4. Lance ensuite:
+
+```bash
+npm run mobile:build:release
+```
+
+Sans `keystore.properties`, le build release reste possible pour test local, mais il n'est pas pret pour une publication Play Store.
+
+### Generer l'APK
+
+1. Lance `npm run mobile:open:android`
+2. Dans Android Studio: Build > Build Bundle(s) / APK(s) > Build APK(s)
+3. Recupere l'APK genere depuis Android Studio
+
+### Publier sur Google Play (checklist complete)
+
+1. Genere le bundle de publication:
+
+```bash
+npm run mobile:build:bundle
+```
+
+2. Verifie le fichier genere:
+
+- `android/app/build/outputs/bundle/release/app-release.aab`
+
+3. Ouvre Google Play Console, cree l'application (si premiere publication), puis configure:
+
+- Nom de l'application
+- Langue par defaut
+- Type d'application (Jeux)
+- Statut payant/gratuit
+
+4. Complete la fiche Play Store:
+
+- Description courte (max 80 caracteres)
+- Description complete
+- Captures d'ecran smartphone (obligatoire)
+- Icône 512x512
+- Image feature graphic 1024x500
+- Categorie (Quiz / Education)
+- Coordonnees de contact
+- Politique de confidentialite (URL)
+
+5. Remplis les formulaires de conformite:
+
+- Securite des donnees (Data safety)
+- Acces a l'application (si necessaire)
+- Classification de contenu
+- Public cible et contenu
+- Publicite (oui/non)
+
+6. Cree une release:
+
+- Production > Creer une nouvelle version
+- Uploader `app-release.aab`
+- Ajouter les notes de version
+- Sauvegarder
+
+7. Verifications avant envoi:
+
+- Tester l'APK release sur un vrai appareil
+- Verifier connexion compte + synchro Supabase
+- Verifier permissions, ecran de lancement, navigation
+- Verifier qu'aucune cle sensible n'est exposee dans les descriptions/store listing
+
+8. Envoyer pour revision Google:
+
+- Examiner et publier
+- Attendre la validation (quelques heures a quelques jours)
+
+### Publier une mise a jour
+
+Avant chaque nouvelle publication, incrementer:
+
+- `versionCode` (doit toujours augmenter)
+- `versionName` (ex: 1.0 -> 1.1)
+
+Ces champs sont dans `android/app/build.gradle`.
+
+Puis:
+
+```bash
+npm run mobile:build:bundle
+```
+
+Uploader ensuite le nouveau `.aab` dans la release Play Console.
+
 ## Fichiers
 
 - `index.html` : structure des ecrans.

@@ -1,0 +1,34 @@
+{
+  "name": "mon-jeu-de-quiz",
+  "version": "1.0.0",
+  "description": "Jeu de quiz front-end sur les pays, capitales et monuments, jouable directement dans le navigateur.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "mobile:copy": "powershell -ExecutionPolicy Bypass -File scripts/copy-web-assets.ps1",
+    "mobile:sync": "npm run mobile:copy && npx cap sync android",
+    "mobile:open:android": "npm run mobile:sync && npx cap open android",
+    "mobile:doctor": "powershell -ExecutionPolicy Bypass -File scripts/mobile-doctor.ps1",
+    "mobile:build:debug": "npm run mobile:sync && cd android && gradlew.bat assembleDebug",
+    "mobile:build:release": "npm run mobile:sync && cd android && gradlew.bat assembleRelease",
+    "mobile:build:bundle": "npm run mobile:sync && cd android && gradlew.bat bundleRelease",
+    "mobile:keystore": "powershell -ExecutionPolicy Bypass -File scripts/create-android-keystore.ps1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/faciletechnologie375-source/Quizz-Aline.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/faciletechnologie375-source/Quizz-Aline/issues"
+  },
+  "homepage": "https://github.com/faciletechnologie375-source/Quizz-Aline#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0"
+  }
+}
