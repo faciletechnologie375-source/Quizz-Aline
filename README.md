@@ -110,6 +110,22 @@ Le projet est publie sur GitHub Pages depuis la branche `main`. Chaque `git push
 
 L'application Android peut etre telechargee gratuitement via un lien direct.
 
+### Si l'installation APK est refusee
+
+Ca arrive generalement pour 2 raisons:
+
+1. Une ancienne version debug/developpement est deja installee avec une autre signature
+2. La version Android du telephone est trop ancienne
+
+Correctifs:
+
+- Desinstaller toute ancienne version `Cap sur le Quiz` puis reinstaller l'APK
+- Verifier Android 7.0+ (min SDK 24)
+
+Note technique:
+
+- La version telechargeable par lien utilise maintenant l'identifiant Android `com.capquiz.aline.public` pour eviter les conflits avec une ancienne version de developpement.
+
 - Page ultra simple (1 bouton): `https://faciletechnologie375-source.github.io/Quizz-Aline/installer.html`
 - Page de telechargement: `https://faciletechnologie375-source.github.io/Quizz-Aline/telecharger.html`
 - Lien direct APK: `https://faciletechnologie375-source.github.io/Quizz-Aline/downloads/latest.apk`
