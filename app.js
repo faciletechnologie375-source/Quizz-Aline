@@ -32,6 +32,7 @@
     createAccountButton: document.getElementById("create-account-button"),
     loginButton: document.getElementById("login-button"),
     resumeButton: document.getElementById("resume-button"),
+    resetScoreButton: document.getElementById("reset-score-button"),
     logoutButton: document.getElementById("logout-button"),
     accountStatus: document.getElementById("account-status"),
     startButton: document.getElementById("start-button"),
@@ -223,6 +224,7 @@
     elements.createAccountButton.addEventListener("click", createAccount);
     elements.loginButton.addEventListener("click", login);
     elements.resumeButton.addEventListener("click", resumeSavedGame);
+    elements.resetScoreButton.addEventListener("click", resetProgress);
     elements.logoutButton.addEventListener("click", logout);
     elements.startButton.addEventListener("click", startGame);
     elements.hintButton.addEventListener("click", revealHint);
@@ -1176,6 +1178,71 @@
     fetchOnlineLeaderboard();
   }
 
+  function resetProgress() {
+    if (!state.currentUser) {
+      return;
+    }
+
+    const profile = getCurrentProfile();
+    if (!profile) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Confirmer la réinitialisation ? Ton score, historique et progression seront remis à zéro."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    clearTimer();
+    clearAutoNext();
+
+    state.score = 0;
+    state.botScore = 0;
+    state.questionIndex = 0;
+    state.questions = [];
+    state.answers = [];
+    state.currentQuestion = null;
+    state.settings = null;
+    state.timeLeft = 60;
+    state.hintUsed = false;
+    state.answered = false;
+    state.selectedChoice = null;
+    state.feedbackText = "";
+    state.feedbackTone = "";
+    state.hintText = "";
+    state.recentQuestionKeys = [];
+    state.usedQuestionKeys = [];
+    state.questionGoal = null;
+    state.questionStats = {};
+    state.questionQueue = [];
+    state.paused = false;
+
+    updateCurrentProfile((current) => ({
+      ...current,
+      bestScore: 0,
+      bestChallenge: 0,
+      bestByMode: {
+        standard: 0,
+        learning: 0,
+        challenge: 0,
+        battle: 0,
+      },
+      history: [],
+      savedGame: null,
+    }));
+
+    showScreen("start");
+    clearStartNotice();
+    loadRecords();
+    updateAuthUi();
+    updateAuthStatus("Ton compte a été réinitialisé. Tu repars à zéro.", "success");
+    syncCurrentUserToOnlineLeaderboard();
+    fetchOnlineLeaderboard(true);
+  }
+
   function resumeSavedGame() {
     const profile = getCurrentProfile();
     if (!profile || !profile.savedGame) {
@@ -1256,6 +1323,7 @@
     loadRecords();
     elements.startButton.disabled = !profile;
     elements.resumeButton.classList.toggle("hidden", !hasSavedGame);
+    elements.resetScoreButton.classList.toggle("hidden", !profile);
     elements.logoutButton.classList.toggle("hidden", !profile);
     elements.usernameInput.value = profile ? profile.displayName : "";
     elements.passwordInput.value = "";
