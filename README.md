@@ -110,6 +110,7 @@ Le projet est publie sur GitHub Pages depuis la branche `main`. Chaque `git push
 
 L'application Android peut etre telechargee gratuitement via un lien direct.
 
+- Page ultra simple (1 bouton): `https://faciletechnologie375-source.github.io/Quizz-Aline/installer.html`
 - Page de telechargement: `https://faciletechnologie375-source.github.io/Quizz-Aline/telecharger.html`
 - Lien direct APK: `https://faciletechnologie375-source.github.io/Quizz-Aline/downloads/latest.apk`
 
