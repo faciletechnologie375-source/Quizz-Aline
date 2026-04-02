@@ -197,6 +197,8 @@
     updateAuthUi();
     renderDashboard();
     startOnlineLeaderboardSync();
+    syncCurrentUserToOnlineLeaderboard();
+    syncCurrentUserFromOnlineLeaderboard();
   }
 
   function bindEvents() {
@@ -220,6 +222,7 @@
 
   function onVisibilityChange() {
     if (document.visibilityState === "visible") {
+      syncCurrentUserToOnlineLeaderboard();
       fetchOnlineLeaderboard();
     }
   }
