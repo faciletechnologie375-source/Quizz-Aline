@@ -12,7 +12,7 @@
   };
 
   const GLOBAL_COUNTRIES_API =
-    "https://restcountries.com/v3.1/all?fields=name,translations,capital,continents,latlng,population";
+    "https://restcountries.com/v3.1/all?fields=name,translations,capital,continents,latlng,population,cca2";
 
   const SCREENS = {
     start: document.getElementById("screen-start"),
@@ -667,7 +667,7 @@
   }
 
   function renderFlagVisual(item, type) {
-    const countryCode = getCountryCode(item.country);
+    const countryCode = (item.countryCode || getCountryCode(item.country) || "").toLowerCase();
     if (!countryCode) {
       elements.flagImage.classList.add("hidden");
       elements.flagCaption.textContent = `Pays cible : ${item.country}`;
@@ -1698,6 +1698,7 @@
         continent: item.continent || existing.continent,
         fact: item.fact || existing.fact,
         hint: item.hint || existing.hint,
+        countryCode: item.countryCode || existing.countryCode || null,
       });
     });
 
@@ -1731,6 +1732,7 @@
       country,
       capital,
       continent,
+      countryCode: item.cca2 ? String(item.cca2).toLowerCase() : null,
       difficulty: getDifficultyFromPopulation(population),
       fact: `${country} fait partie du continent ${continent}.`,
       hint: `La capitale recherchée commence par ${capital.charAt(0)}.`,
