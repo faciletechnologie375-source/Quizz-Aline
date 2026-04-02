@@ -73,6 +73,12 @@
     historyList: document.getElementById("history-list"),
     leaderboardListResult: document.getElementById("leaderboard-list-result"),
     historyListResult: document.getElementById("history-list-result"),
+    leaderboardModeFilter: document.getElementById("leaderboard-mode-filter"),
+    leaderboardModeFilterResult: document.getElementById("leaderboard-mode-filter-result"),
+    leaderboardRefreshButton: document.getElementById("leaderboard-refresh-button"),
+    leaderboardRefreshButtonResult: document.getElementById("leaderboard-refresh-button-result"),
+    leaderboardCloudStatus: document.getElementById("leaderboard-cloud-status"),
+    leaderboardCloudStatusResult: document.getElementById("leaderboard-cloud-status-result"),
   };
 
   const MODE_LABELS = {
@@ -189,6 +195,8 @@
     audioContext: null,
     onlineLeaderboard: [],
     onlinePollId: null,
+    onlineStatus: "offline",
+    leaderboardModeFilter: "all",
   };
 
   function init() {
@@ -216,14 +224,48 @@
     elements.finishButton.addEventListener("click", finishSession);
     elements.restartButton.addEventListener("click", restart);
     elements.shareButton.addEventListener("click", shareScore);
+    if (elements.leaderboardModeFilter) {
+      elements.leaderboardModeFilter.addEventListener("change", onLeaderboardModeChange);
+    }
+    if (elements.leaderboardModeFilterResult) {
+      elements.leaderboardModeFilterResult.addEventListener("change", onLeaderboardModeChange);
+    }
+    if (elements.leaderboardRefreshButton) {
+      elements.leaderboardRefreshButton.addEventListener("click", refreshLeaderboardNow);
+    }
+    if (elements.leaderboardRefreshButtonResult) {
+      elements.leaderboardRefreshButtonResult.addEventListener("click", refreshLeaderboardNow);
+    }
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("beforeunload", saveGameProgress);
+  }
+
+  function onLeaderboardModeChange(event) {
+    state.leaderboardModeFilter = event.target.value || "all";
+    syncLeaderboardFilterInputs();
+    renderLeaderboard();
+  }
+
+  function syncLeaderboardFilterInputs() {
+    if (elements.leaderboardModeFilter && elements.leaderboardModeFilter.value !== state.leaderboardModeFilter) {
+      elements.leaderboardModeFilter.value = state.leaderboardModeFilter;
+    }
+    if (
+      elements.leaderboardModeFilterResult &&
+      elements.leaderboardModeFilterResult.value !== state.leaderboardModeFilter
+    ) {
+      elements.leaderboardModeFilterResult.value = state.leaderboardModeFilter;
+    }
+  }
+
+  function refreshLeaderboardNow() {
+    fetchOnlineLeaderboard(true);
   }
 
   function onVisibilityChange() {
     if (document.visibilityState === "visible") {
       syncCurrentUserToOnlineLeaderboard();
-      fetchOnlineLeaderboard();
+      fetchOnlineLeaderboard(true);
     }
   }
 
@@ -884,6 +926,9 @@
     updateCurrentProfile((profile) => {
       const nextProfile = { ...profile };
       nextProfile.bestScore = Math.max(profile.bestScore || 0, state.score);
+      const modeScores = { ...(profile.bestByMode || {}) };
+      modeScores[state.settings.mode] = Math.max(modeScores[state.settings.mode] || 0, state.score);
+      nextProfile.bestByMode = modeScores;
       if (state.settings.mode === "challenge") {
         nextProfile.bestChallenge = Math.max(
           profile.bestChallenge || 0,
@@ -970,6 +1015,12 @@
       passwordHash: hashPassword(credentials.password),
       bestScore: 0,
       bestChallenge: 0,
+      bestByMode: {
+        standard: 0,
+        learning: 0,
+        challenge: 0,
+        battle: 0,
+      },
       savedGame: null,
       history: [],
     };
@@ -1109,6 +1160,8 @@
   }
 
   function renderDashboard() {
+    syncLeaderboardFilterInputs();
+    renderCloudStatus();
     renderLeaderboard();
     renderHistory();
   }
@@ -1135,14 +1188,16 @@
   }
 
   function buildLeaderboardRanking() {
+    const selectedMode = state.leaderboardModeFilter || "all";
     const merged = new Map();
     const localUsers = getUsers();
 
     Object.entries(localUsers).forEach(([username, profile]) => {
+      const score = getScoreForMode(profile, selectedMode);
       merged.set(username, {
         username,
         name: profile.displayName || "Joueur",
-        score: profile.bestScore || 0,
+        score,
       });
     });
 
@@ -1151,17 +1206,82 @@
         return;
       }
 
+      const score = getRemoteScoreForMode(entry, selectedMode);
+
       const existing = merged.get(entry.username);
-      if (!existing || (entry.best_score || 0) > existing.score) {
+      if (!existing || score > existing.score) {
         merged.set(entry.username, {
           username: entry.username,
           name: entry.display_name || entry.username,
-          score: entry.best_score || 0,
+          score,
         });
       }
     });
 
-    return Array.from(merged.values()).sort((a, b) => b.score - a.score);
+    return Array.from(merged.values())
+      .filter((entry) => entry.score > 0 || selectedMode === "all")
+      .sort((a, b) => b.score - a.score);
+  }
+
+  function getScoreForMode(profile, mode) {
+    if (!profile) {
+      return 0;
+    }
+
+    if (mode === "all") {
+      return profile.bestScore || 0;
+    }
+
+    const modeScores = profile.bestByMode || {};
+    return modeScores[mode] || 0;
+  }
+
+  function getRemoteScoreForMode(entry, mode) {
+    if (mode === "all") {
+      return entry.best_score || 0;
+    }
+
+    const modeScores = entry.mode_scores;
+    if (modeScores && typeof modeScores === "object") {
+      return modeScores[mode] || 0;
+    }
+
+    return entry.best_score || 0;
+  }
+
+  function renderCloudStatus() {
+    const status = buildCloudStatusLabel();
+    updateCloudStatusElement(elements.leaderboardCloudStatus, status);
+    updateCloudStatusElement(elements.leaderboardCloudStatusResult, status);
+  }
+
+  function updateCloudStatusElement(element, status) {
+    if (!element) {
+      return;
+    }
+
+    element.textContent = status.text;
+    element.className = `cloud-status ${status.tone}`;
+  }
+
+  function buildCloudStatusLabel() {
+    if (!hasOnlineLeaderboardConfig()) {
+      return { text: "Mode local", tone: "offline" };
+    }
+
+    if (state.onlineStatus === "syncing") {
+      return { text: "Synchronisation...", tone: "syncing" };
+    }
+
+    if (state.onlineStatus === "online") {
+      return { text: "En ligne", tone: "online" };
+    }
+
+    if (state.onlineStatus === "error") {
+      return { text: "Hors ligne", tone: "error" };
+    }
+
+    return { text: "Connexion...", tone: "offline" };
   }
 
   function renderHistory() {
@@ -1345,24 +1465,31 @@
 
   function startOnlineLeaderboardSync() {
     if (!hasOnlineLeaderboardConfig()) {
+      state.onlineStatus = "offline";
+      renderCloudStatus();
       return;
     }
 
-    fetchOnlineLeaderboard();
+    fetchOnlineLeaderboard(true);
     if (state.onlinePollId) {
       clearInterval(state.onlinePollId);
     }
     state.onlinePollId = window.setInterval(fetchOnlineLeaderboard, 15000);
   }
 
-  async function fetchOnlineLeaderboard() {
+  async function fetchOnlineLeaderboard(showStatus) {
     if (!hasOnlineLeaderboardConfig()) {
       return;
     }
 
+    if (showStatus) {
+      state.onlineStatus = "syncing";
+      renderCloudStatus();
+    }
+
     try {
-      const response = await fetch(
-        getOnlineEndpoint("select=username,display_name,best_score&order=best_score.desc"),
+      let response = await fetch(
+        getOnlineEndpoint("select=username,display_name,best_score,mode_scores&order=best_score.desc"),
         {
           method: "GET",
           headers: getOnlineHeaders(),
@@ -1370,13 +1497,29 @@
       );
 
       if (!response.ok) {
+        response = await fetch(
+          getOnlineEndpoint("select=username,display_name,best_score&order=best_score.desc"),
+          {
+            method: "GET",
+            headers: getOnlineHeaders(),
+          }
+        );
+      }
+
+      if (!response.ok) {
+        state.onlineStatus = "error";
+        renderCloudStatus();
         return;
       }
 
       const rows = await response.json();
       state.onlineLeaderboard = Array.isArray(rows) ? rows : [];
+      state.onlineStatus = "online";
+      renderCloudStatus();
       renderLeaderboard();
     } catch (error) {
+      state.onlineStatus = "error";
+      renderCloudStatus();
       // Network failures should not block gameplay.
     }
   }
@@ -1396,6 +1539,12 @@
         username: state.currentUser,
         display_name: profile.displayName || state.currentUser,
         best_score: profile.bestScore || 0,
+        mode_scores: profile.bestByMode || {
+          standard: 0,
+          learning: 0,
+          challenge: 0,
+          battle: 0,
+        },
       },
     ];
 
@@ -1407,9 +1556,44 @@
       },
       body: JSON.stringify(payload),
     })
-      .then(() => fetchOnlineLeaderboard())
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("mode upsert failed");
+        }
+        state.onlineStatus = "online";
+        renderCloudStatus();
+        return fetchOnlineLeaderboard();
+      })
       .catch(() => {
-        // Keep local mode operational when sync fails.
+        const fallbackPayload = [
+          {
+            username: state.currentUser,
+            display_name: profile.displayName || state.currentUser,
+            best_score: profile.bestScore || 0,
+          },
+        ];
+
+        fetch(getOnlineEndpoint("on_conflict=username"), {
+          method: "POST",
+          headers: {
+            ...getOnlineHeaders(),
+            Prefer: "resolution=merge-duplicates,return=minimal",
+          },
+          body: JSON.stringify(fallbackPayload),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("fallback upsert failed");
+            }
+            state.onlineStatus = "online";
+            renderCloudStatus();
+            return fetchOnlineLeaderboard();
+          })
+          .catch(() => {
+            state.onlineStatus = "error";
+            renderCloudStatus();
+            // Keep local mode operational when sync fails.
+          });
       });
   }
 
@@ -1420,7 +1604,7 @@
 
     fetch(
       getOnlineEndpoint(
-        `select=username,display_name,best_score&username=eq.${encodeURIComponent(state.currentUser)}&limit=1`
+        `select=username,display_name,best_score,mode_scores&username=eq.${encodeURIComponent(state.currentUser)}&limit=1`
       ),
       {
         method: "GET",
@@ -1443,6 +1627,15 @@
           ...profile,
           displayName: remote.display_name || profile.displayName,
           bestScore: Math.max(profile.bestScore || 0, remote.best_score || 0),
+          bestByMode:
+            remote.mode_scores && typeof remote.mode_scores === "object"
+              ? { ...(profile.bestByMode || {}), ...remote.mode_scores }
+              : profile.bestByMode || {
+                  standard: 0,
+                  learning: 0,
+                  challenge: 0,
+                  battle: 0,
+                },
         }));
 
         loadRecords();

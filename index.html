@@ -169,6 +169,20 @@
             <article class="dashboard-card">
               <p class="section-kicker">Classement local</p>
               <h3>Top joueurs</h3>
+              <div class="leaderboard-toolbar">
+                <span class="cloud-status" id="leaderboard-cloud-status">Mode local</span>
+                <div class="leaderboard-actions">
+                  <label class="sr-only" for="leaderboard-mode-filter">Filtrer par mode</label>
+                  <select id="leaderboard-mode-filter" class="leaderboard-select" aria-label="Filtrer le classement par mode">
+                    <option value="all">Tous les modes</option>
+                    <option value="standard">Mode standard</option>
+                    <option value="learning">Mode apprentissage</option>
+                    <option value="challenge">Mode défi</option>
+                    <option value="battle">Mode duel</option>
+                  </select>
+                  <button type="button" class="leaderboard-refresh" id="leaderboard-refresh-button">Actualiser</button>
+                </div>
+              </div>
               <div class="dashboard-list" id="leaderboard-list"></div>
             </article>
 
@@ -320,6 +334,20 @@
             <article class="dashboard-card">
               <p class="section-kicker">Classement local</p>
               <h3>Top joueurs</h3>
+              <div class="leaderboard-toolbar">
+                <span class="cloud-status" id="leaderboard-cloud-status-result">Mode local</span>
+                <div class="leaderboard-actions">
+                  <label class="sr-only" for="leaderboard-mode-filter-result">Filtrer par mode</label>
+                  <select id="leaderboard-mode-filter-result" class="leaderboard-select" aria-label="Filtrer le classement par mode">
+                    <option value="all">Tous les modes</option>
+                    <option value="standard">Mode standard</option>
+                    <option value="learning">Mode apprentissage</option>
+                    <option value="challenge">Mode défi</option>
+                    <option value="battle">Mode duel</option>
+                  </select>
+                  <button type="button" class="leaderboard-refresh" id="leaderboard-refresh-button-result">Actualiser</button>
+                </div>
+              </div>
               <div class="dashboard-list" id="leaderboard-list-result"></div>
             </article>
 
