@@ -106,6 +106,7 @@
         padding: 12px;
         display: grid;
         place-items: center;
+        gap: 12px;
       }
 
       .phone {
@@ -123,6 +124,26 @@
         width: 100%;
         height: 100%;
         border: 0;
+      }
+
+      .qr {
+        background: #fffef8;
+        border: 1px solid #e4d4aa;
+        border-radius: 12px;
+        padding: 10px;
+        text-align: center;
+      }
+
+      .qr img {
+        width: 150px;
+        height: 150px;
+        border-radius: 8px;
+        display: block;
+      }
+
+      .qr p {
+        margin: 8px 0 0;
+        font-size: 0.88rem;
       }
 
       .help {
@@ -173,6 +194,14 @@
       <section class="preview">
         <div class="phone" aria-label="Apercu de l'application">
           <iframe src="index.html" title="Apercu Cap sur le Quiz"></iframe>
+        </div>
+
+        <div class="qr">
+          <img
+            src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https%3A%2F%2Ffaciletechnologie375-source.github.io%2FQuizz-Aline%2Finstaller.html"
+            alt="QR code de telechargement"
+          />
+          <p>Scanne pour installer</p>
         </div>
       </section>
     </main>

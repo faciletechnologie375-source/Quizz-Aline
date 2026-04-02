@@ -115,6 +115,7 @@ L'application Android peut etre telechargee gratuitement via un lien direct.
 - Lien direct APK: `https://faciletechnologie375-source.github.io/Quizz-Aline/downloads/latest.apk`
 
 La page `installer.html` inclut aussi un bouton de partage WhatsApp.
+La page inclut egalement un QR code pour installation directe depuis un telephone.
 
 ### Mettre a jour l'APK telechargeable
 
