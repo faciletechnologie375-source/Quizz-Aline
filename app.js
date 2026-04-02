@@ -11,6 +11,9 @@
     table: (window.QUIZ_ONLINE_CONFIG && window.QUIZ_ONLINE_CONFIG.table) || "quiz_leaderboard",
   };
 
+  const GLOBAL_COUNTRIES_API =
+    "https://restcountries.com/v3.1/all?fields=name,translations,capital,continents,latlng,population";
+
   const SCREENS = {
     start: document.getElementById("screen-start"),
     game: document.getElementById("screen-game"),
@@ -190,11 +193,15 @@
     hintText: "",
     autoNextId: null,
     recentQuestionKeys: [],
+    usedQuestionKeys: [],
     questionGoal: null,
     questionStats: {},
     questionQueue: [],
     paused: false,
     audioContext: null,
+    dataset: [],
+    datasetLoading: false,
+    datasetLoaded: false,
     onlineLeaderboard: [],
     onlinePollId: null,
     onlineStatus: "offline",
@@ -206,6 +213,7 @@
     restoreCurrentUser();
     updateAuthUi();
     renderDashboard();
+    preloadGlobalDataset();
     startOnlineLeaderboardSync();
     syncCurrentUserToOnlineLeaderboard();
     syncCurrentUserFromOnlineLeaderboard();
@@ -248,6 +256,11 @@
   }
 
   function updateUniqueCounterPreview() {
+    if (state.datasetLoading && !state.datasetLoaded) {
+      elements.uniqueCounter.textContent = "Chargement de la base mondiale des pays...";
+      return;
+    }
+
     const settings = {
       difficulty: elements.difficultySelect.value,
       continent: elements.continentSelect.value,
@@ -272,7 +285,7 @@
       return;
     }
 
-    elements.uniqueCounter.textContent = `Questions uniques disponibles : ${queueSize}. Cette session ira jusqu'à épuisement sans répétition.`;
+    elements.uniqueCounter.textContent = `Questions uniques disponibles : ${queueSize}. Aucune répétition dans la session tant qu'il reste des questions inédites.`;
   }
 
   function onLeaderboardModeChange(event) {
@@ -349,6 +362,7 @@
     state.feedbackTone = "";
     state.hintText = "";
     state.recentQuestionKeys = [];
+    state.usedQuestionKeys = [];
     state.questionStats = {};
     state.settings = settings;
     state.questionGoal = null;
@@ -362,7 +376,7 @@
       return;
     }
 
-    state.questionGoal = settings.mode === "challenge" ? 10 : state.questionQueue.length;
+    state.questionGoal = settings.mode === "challenge" ? 10 : null;
     state.timeLeft = 60;
     state.paused = false;
     state.questions = [];
@@ -394,7 +408,7 @@
   }
 
   function buildPool(settings) {
-    return window.QUIZ_DATA.filter((item) => {
+    return getDataset().filter((item) => {
       const matchesDifficulty =
         settings.difficulty === "all" || item.difficulty === settings.difficulty;
       const matchesContinent =
@@ -407,6 +421,14 @@
   }
 
   function appendNextQuestion(pool, settings) {
+    if (!state.questionQueue.length) {
+      state.questionQueue = buildQuestionQueue(
+        pool,
+        settings,
+        new Set(state.usedQuestionKeys)
+      );
+    }
+
     const nextSeed = state.questionQueue.shift();
     const sequenceNumber = state.questions.length;
 
@@ -430,6 +452,7 @@
 
     state.questions.push(nextQuestion);
     state.recentQuestionKeys.push(nextQuestion.key);
+    state.usedQuestionKeys.push(nextQuestion.key);
     state.questionStats[nextQuestion.key] = (state.questionStats[nextQuestion.key] || 0) + 1;
 
     const maxRecent = Math.min(8, Math.max(3, pool.length - 1));
@@ -438,7 +461,7 @@
     }
   }
 
-  function buildQuestionQueue(pool, settings) {
+  function buildQuestionQueue(pool, settings, excludedKeys) {
     const candidates = [];
 
     pool.forEach((item) => {
@@ -460,7 +483,11 @@
       }
     });
 
-    return shuffle(candidates);
+    const filteredCandidates = excludedKeys
+      ? candidates.filter((candidate) => !excludedKeys.has(candidate.key))
+      : candidates;
+
+    return shuffle(filteredCandidates);
   }
 
   function generateQuestion(pool, settings, recentQuestionKeys, questionStats, sequenceNumber) {
@@ -540,7 +567,7 @@
 
   function buildOptions(pool, item) {
     const localPool = pool.filter((entry) => entry.country !== item.country);
-    const globalFallback = window.QUIZ_DATA.filter(
+    const globalFallback = getDataset().filter(
       (entry) =>
         entry.country !== item.country &&
         !localPool.some((candidate) => candidate.country === entry.country)
@@ -625,7 +652,7 @@
     elements.miniMap.appendChild(glow);
 
     optionCountries.forEach((country) => {
-      const place = window.QUIZ_DATA.find((entry) => entry.country === country);
+      const place = getDataset().find((entry) => entry.country === country);
       const pin = document.createElement("button");
       pin.type = "button";
       pin.className = "map-pin";
@@ -1178,10 +1205,23 @@
     state.feedbackTone = snapshot.feedbackTone || "";
     state.hintText = snapshot.hintText || "";
     state.recentQuestionKeys = snapshot.recentQuestionKeys || [];
+    state.usedQuestionKeys =
+      snapshot.usedQuestionKeys ||
+      (Array.isArray(snapshot.questions)
+        ? snapshot.questions.map((question) => question.key).filter(Boolean)
+        : []);
     state.questionGoal = snapshot.questionGoal || null;
     state.questionStats = snapshot.questionStats || {};
     state.questionQueue = snapshot.questionQueue || [];
     state.paused = Boolean(snapshot.paused);
+
+    if (!state.questionQueue.length && state.settings) {
+      state.questionQueue = buildQuestionQueue(
+        buildPool(state.settings),
+        state.settings,
+        new Set(state.usedQuestionKeys)
+      );
+    }
 
     if (!state.settings || !state.questions.length) {
       clearSavedGame();
@@ -1461,6 +1501,7 @@
         feedbackTone: state.feedbackTone,
         hintText: state.hintText,
         recentQuestionKeys: state.recentQuestionKeys,
+        usedQuestionKeys: state.usedQuestionKeys,
         questionGoal: state.questionGoal,
         questionStats: state.questionStats,
         questionQueue: state.questionQueue,
@@ -1522,6 +1563,163 @@
     } catch (error) {
       return {};
     }
+  }
+
+  function getDataset() {
+    if (state.datasetLoaded && state.dataset.length) {
+      return state.dataset;
+    }
+
+    return Array.isArray(window.QUIZ_DATA) ? window.QUIZ_DATA : [];
+  }
+
+  async function preloadGlobalDataset() {
+    if (state.datasetLoading || !navigator.onLine) {
+      return;
+    }
+
+    state.datasetLoading = true;
+
+    try {
+      const response = await fetch(GLOBAL_COUNTRIES_API);
+      if (!response.ok) {
+        return;
+      }
+
+      const rows = await response.json();
+      if (!Array.isArray(rows) || !rows.length) {
+        return;
+      }
+
+      const generated = rows.map(mapCountryApiItemToQuiz).filter(Boolean);
+      if (!generated.length) {
+        return;
+      }
+
+      state.dataset = mergeDatasets(window.QUIZ_DATA, generated);
+      state.datasetLoaded = true;
+      updateUniqueCounterPreview();
+    } catch (error) {
+      // Keep local embedded dataset as fallback.
+    } finally {
+      state.datasetLoading = false;
+    }
+  }
+
+  function mergeDatasets(localDataset, generatedDataset) {
+    const mergedByKey = new Map();
+
+    generatedDataset.forEach((item) => {
+      mergedByKey.set(normalizeCountryKey(item.country), item);
+    });
+
+    (localDataset || []).forEach((item) => {
+      const key = normalizeCountryKey(item.country);
+      const existing = mergedByKey.get(key);
+
+      if (!existing) {
+        mergedByKey.set(key, item);
+        return;
+      }
+
+      mergedByKey.set(key, {
+        ...existing,
+        ...item,
+        country: item.country || existing.country,
+        capital: item.capital || existing.capital,
+        continent: item.continent || existing.continent,
+        fact: item.fact || existing.fact,
+        hint: item.hint || existing.hint,
+      });
+    });
+
+    return Array.from(mergedByKey.values());
+  }
+
+  function mapCountryApiItemToQuiz(item) {
+    if (!item || !Array.isArray(item.capital) || !item.capital.length) {
+      return null;
+    }
+
+    const continent = mapApiContinentToQuizContinent(item.continents && item.continents[0]);
+    if (!continent) {
+      return null;
+    }
+
+    const country =
+      (item.translations && item.translations.fra && item.translations.fra.common) ||
+      (item.name && item.name.common);
+    const capital = item.capital[0];
+
+    if (!country || !capital) {
+      return null;
+    }
+
+    const lat = Array.isArray(item.latlng) ? item.latlng[0] : null;
+    const lon = Array.isArray(item.latlng) ? item.latlng[1] : null;
+    const population = Number(item.population || 0);
+
+    return {
+      country,
+      capital,
+      continent,
+      difficulty: getDifficultyFromPopulation(population),
+      fact: `${country} fait partie du continent ${continent}.`,
+      hint: `La capitale recherchée commence par ${capital.charAt(0)}.`,
+      monument: null,
+      x: projectLongitudeToMapX(lon),
+      y: projectLatitudeToMapY(lat),
+    };
+  }
+
+  function mapApiContinentToQuizContinent(continent) {
+    if (continent === "Europe") {
+      return "Europe";
+    }
+    if (continent === "Africa") {
+      return "Afrique";
+    }
+    if (continent === "Asia") {
+      return "Asie";
+    }
+    if (continent === "North America") {
+      return "Amérique du Nord";
+    }
+    if (continent === "South America") {
+      return "Amérique du Sud";
+    }
+    if (continent === "Oceania") {
+      return "Océanie";
+    }
+    return null;
+  }
+
+  function getDifficultyFromPopulation(population) {
+    if (population >= 50000000) {
+      return "easy";
+    }
+    if (population >= 10000000) {
+      return "medium";
+    }
+    return "hard";
+  }
+
+  function projectLongitudeToMapX(lon) {
+    if (typeof lon !== "number" || Number.isNaN(lon)) {
+      return 50;
+    }
+
+    const raw = ((lon + 180) / 360) * 100;
+    return Math.max(4, Math.min(96, Math.round(raw)));
+  }
+
+  function projectLatitudeToMapY(lat) {
+    if (typeof lat !== "number" || Number.isNaN(lat)) {
+      return 50;
+    }
+
+    const raw = ((90 - lat) / 180) * 100;
+    return Math.max(6, Math.min(94, Math.round(raw)));
   }
 
   function hasOnlineLeaderboardConfig() {
