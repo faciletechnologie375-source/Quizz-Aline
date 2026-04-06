@@ -276,6 +276,7 @@
     elements.modeSelect.addEventListener("change", updateUniqueCounterPreview);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("beforeunload", saveGameProgress);
+    window.addEventListener("online", handleConnectionRestored);
     updateUniqueCounterPreview();
   }
 
@@ -379,6 +380,16 @@
     if (document.visibilityState === "visible") {
       syncCurrentUserToOnlineLeaderboard();
       fetchOnlineLeaderboard(true);
+    }
+  }
+
+  function handleConnectionRestored() {
+    preloadGlobalDataset();
+    fetchOnlineLeaderboard(true);
+
+    if (state.currentUser) {
+      syncCurrentUserToOnlineLeaderboard();
+      syncCurrentUserFromOnlineLeaderboard();
     }
   }
 
@@ -731,14 +742,18 @@
     glow.className = "map-glow";
     elements.miniMap.appendChild(glow);
 
-    optionCountries.forEach((country) => {
+    optionCountries.forEach((country, index) => {
       const place = getDataset().find((entry) => entry.country === country);
+      const fallbackX = 16 + ((index * 21) % 68);
+      const fallbackY = 18 + ((index * 17) % 56);
+      const x = typeof place?.x === "number" ? place.x : fallbackX;
+      const y = typeof place?.y === "number" ? place.y : fallbackY;
       const pin = document.createElement("button");
       pin.type = "button";
       pin.className = "map-pin";
-      pin.style.left = `${place.x}%`;
-      pin.style.top = `${place.y}%`;
-      pin.innerHTML = `<span></span><small>${country}</small>`;
+      pin.style.left = `${x}%`;
+      pin.style.top = `${y}%`;
+      pin.innerHTML = `<span></span><small>${escapeHtml(country)}</small>`;
       pin.addEventListener("click", () => submitAnswer(country));
       elements.miniMap.appendChild(pin);
     });
@@ -753,6 +768,11 @@
     }
 
     elements.flagImage.classList.remove("hidden");
+    elements.flagImage.onerror = () => {
+      elements.flagImage.classList.add("hidden");
+      elements.flagCaption.textContent = `Pays cible : ${item.country}`;
+      elements.flagImage.onerror = null;
+    };
     elements.flagImage.src = `https://flagcdn.com/w160/${countryCode}.png`;
     elements.flagImage.alt = `Drapeau de ${item.country}`;
     elements.flagCaption.textContent =
@@ -764,7 +784,7 @@
             ? "Indice : fait culturel"
             : type === "hint"
               ? "Indice : aide contextuelle"
-        : `Capitale : ${item.capital}`;
+              : `Capitale : ${item.capital}`;
   }
 
   function getQuestionTypeLabel(type) {
@@ -1191,32 +1211,43 @@
           <span>Question ${index + 1}</span>
           <strong>${entry.isCorrect ? "Correct" : "A revoir"}</strong>
         </div>
-        <h3>${entry.prompt}</h3>
-        <p>Ta reponse : ${entry.selected || "Aucune"}</p>
-        <p>Bonne reponse : ${entry.answer}</p>
-        <p>Capitale : ${entry.capital}</p>
-        <p>${entry.fact}</p>
+        <h3>${escapeHtml(entry.prompt)}</h3>
+        <p>Ta reponse : ${escapeHtml(entry.selected || "Aucune")}</p>
+        <p>Bonne reponse : ${escapeHtml(entry.answer)}</p>
+        <p>Capitale : ${escapeHtml(entry.capital)}</p>
+        <p>${escapeHtml(entry.fact)}</p>
       `;
       elements.reviewList.appendChild(reviewCard);
     });
   }
 
-  function shareScore() {
+  async function shareScore() {
     const shareText = `J'ai marque ${state.score} points sur Cap sur le Quiz en ${MODE_LABELS[state.settings.mode].toLowerCase()}.`;
 
     if (navigator.share) {
-      navigator.share({
-        title: "Cap sur le Quiz",
-        text: shareText,
-      });
-      return;
+      try {
+        await navigator.share({
+          title: "Cap sur le Quiz",
+          text: shareText,
+        });
+        return;
+      } catch (error) {
+        // If native sharing is cancelled or blocked, fall back to clipboard.
+      }
     }
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(shareText).then(() => {
-        elements.resultSummary.textContent = `${elements.resultSummary.textContent} Score copie dans le presse-papiers.`;
-      });
+      navigator.clipboard.writeText(shareText)
+        .then(() => {
+          elements.resultSummary.textContent = `${elements.resultSummary.textContent} Score copie dans le presse-papiers.`;
+        })
+        .catch(() => {
+          elements.resultSummary.textContent = `${elements.resultSummary.textContent} Partage indisponible sur cet appareil.`;
+        });
+      return;
     }
+
+    elements.resultSummary.textContent = `${elements.resultSummary.textContent} Partage indisponible sur cet appareil.`;
   }
 
   function restart() {
@@ -1559,10 +1590,10 @@
     const html = ranking
       .map(
         (entry, index) =>
-          `<p><strong>#${index + 1}</strong> ${entry.name} <span>${entry.score} pts</span></p>`
+          `<p><strong>#${index + 1}</strong> ${escapeHtml(entry.name)} <span>${Number(entry.score) || 0} pts</span></p>`
       )
       .join("");
-    
+
     elements.leaderboardList.innerHTML = html;
     if (elements.leaderboardListResult) elements.leaderboardListResult.innerHTML = html;
   }
@@ -1694,10 +1725,12 @@
           day: "2-digit",
           month: "2-digit",
         });
-        return `<p><strong>${date}</strong> ${MODE_LABELS[session.mode]} · ${THEME_LABELS[session.theme]} <span>${session.score} pts (${session.correct}/${session.total})</span></p>`;
+        const modeLabel = MODE_LABELS[session.mode] || session.mode || "Mode inconnu";
+        const themeLabel = THEME_LABELS[session.theme] || session.theme || "Parcours";
+        return `<p><strong>${escapeHtml(date)}</strong> ${escapeHtml(modeLabel)} · ${escapeHtml(themeLabel)} <span>${Number(session.score) || 0} pts (${Number(session.correct) || 0}/${Number(session.total) || 0})</span></p>`;
       })
       .join("");
-    
+
     elements.historyList.innerHTML = html;
     if (elements.historyListResult) elements.historyListResult.innerHTML = html;
   }
@@ -1826,6 +1859,15 @@
       clearTimeout(state.autoNextId);
       state.autoNextId = null;
     }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   function getUsers() {
