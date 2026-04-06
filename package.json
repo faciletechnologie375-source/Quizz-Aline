@@ -4,6 +4,8 @@
   "description": "Jeu de quiz front-end sur les pays, capitales et monuments, jouable directement dans le navigateur.",
   "main": "app.js",
   "scripts": {
+    "start": "node server.js",
+    "render-build": "echo \"Render ready\"",
     "test": "echo \"Error: no test specified\" && exit 1",
     "mobile:copy": "powershell -ExecutionPolicy Bypass -File scripts/copy-web-assets.ps1",
     "mobile:sync": "npm run mobile:copy && npx cap sync android",

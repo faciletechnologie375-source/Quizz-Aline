@@ -14,7 +14,9 @@ $filesToCopy = @(
   "styles.css",
   "app.js",
   "data.js",
-  "online-config.js"
+  "online-config.js",
+  "favicon.svg",
+  "logo.jpg"
 )
 
 foreach ($file in $filesToCopy) {

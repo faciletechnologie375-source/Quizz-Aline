@@ -70,6 +70,23 @@ body::before {
   padding: 28px;
 }
 
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.hero-logo {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 24px rgba(31, 138, 138, 0.2);
+  background: #ffffff;
+}
+
 .hero-stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -97,6 +114,10 @@ h3 {
 h1 {
   font-size: clamp(2.8rem, 6vw, 5rem);
   line-height: 0.92;
+}
+
+.hero-brand .eyebrow {
+  margin-bottom: 8px;
 }
 
 h2 {
@@ -240,7 +261,8 @@ h2 {
   font-size: 13px;
 }
 
-.leaderboard-refresh {
+.leaderboard-refresh,
+.leaderboard-reset {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
@@ -254,6 +276,21 @@ h2 {
 
 .leaderboard-refresh:hover {
   background: #f3f8f6;
+}
+
+.leaderboard-reset {
+  background: rgba(220, 38, 38, 0.08);
+  color: #991b1b;
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.leaderboard-reset:hover:enabled {
+  background: rgba(220, 38, 38, 0.14);
+}
+
+.leaderboard-reset:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .cloud-status {
@@ -848,6 +885,11 @@ button:disabled {
 @media (max-width: 640px) {
   .page-shell {
     padding: 18px 14px 36px;
+  }
+
+  .hero-logo {
+    width: 72px;
+    height: 72px;
   }
 
   .panel,

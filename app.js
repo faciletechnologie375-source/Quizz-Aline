@@ -94,6 +94,8 @@
     leaderboardModeFilterResult: document.getElementById("leaderboard-mode-filter-result"),
     leaderboardRefreshButton: document.getElementById("leaderboard-refresh-button"),
     leaderboardRefreshButtonResult: document.getElementById("leaderboard-refresh-button-result"),
+    leaderboardResetButton: document.getElementById("leaderboard-reset-button"),
+    leaderboardResetButtonResult: document.getElementById("leaderboard-reset-button-result"),
     leaderboardCloudStatus: document.getElementById("leaderboard-cloud-status"),
     leaderboardCloudStatusResult: document.getElementById("leaderboard-cloud-status-result"),
   };
@@ -262,6 +264,12 @@
     if (elements.leaderboardRefreshButtonResult) {
       elements.leaderboardRefreshButtonResult.addEventListener("click", refreshLeaderboardNow);
     }
+    if (elements.leaderboardResetButton) {
+      elements.leaderboardResetButton.addEventListener("click", resetLeaderboardOnly);
+    }
+    if (elements.leaderboardResetButtonResult) {
+      elements.leaderboardResetButtonResult.addEventListener("click", resetLeaderboardOnly);
+    }
     elements.difficultySelect.addEventListener("change", updateUniqueCounterPreview);
     elements.continentSelect.addEventListener("change", updateUniqueCounterPreview);
     elements.themeSelect.addEventListener("change", updateUniqueCounterPreview);
@@ -324,6 +332,47 @@
 
   function refreshLeaderboardNow() {
     fetchOnlineLeaderboard(true);
+  }
+
+  async function resetLeaderboardOnly() {
+    if (!state.currentUser) {
+      updateAuthStatus("Connecte-toi pour réinitialiser ton classement.", "error");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Confirmer la réinitialisation du classement ? Tes records seront remis à zéro, mais ton compte restera disponible."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    updateCurrentProfile((profile) => ({
+      ...profile,
+      bestScore: 0,
+      bestChallenge: 0,
+      bestByMode: {
+        standard: 0,
+        learning: 0,
+        challenge: 0,
+        battle: 0,
+      },
+    }));
+
+    const updatedProfile = getCurrentProfile();
+    loadRecords();
+    renderLeaderboard();
+    updateAuthStatus("Ton classement a été réinitialisé.", "success");
+
+    if (updatedProfile && hasOnlineAccountsConfig()) {
+      await upsertRemoteAccount(state.currentUser, updatedProfile);
+    }
+
+    if (hasOnlineLeaderboardConfig()) {
+      syncCurrentUserToOnlineLeaderboard();
+      fetchOnlineLeaderboard(true);
+    }
   }
 
   function onVisibilityChange() {
@@ -770,29 +819,37 @@
   }
 
   function incrementBestScore(points) {
-    // Ajouter les points au meilleur score en temps réel pendant le jeu
+    if (!points) {
+      return;
+    }
+
     updateCurrentProfile((profile) => {
       const nextProfile = { ...profile };
-      // Ajouter au score global
-      nextProfile.bestScore = (profile.bestScore || 0) + points;
-      
-      // Ajouter aussi au score du mode actuel
-      const modeScores = { ...(profile.bestByMode || {}) };
-      modeScores[state.settings.mode] = (modeScores[state.settings.mode] || 0) + points;
+      nextProfile.bestScore = Math.max(profile.bestScore || 0, state.score);
+
+      const modeScores = {
+        standard: 0,
+        learning: 0,
+        challenge: 0,
+        battle: 0,
+        ...(profile.bestByMode || {}),
+      };
+      modeScores[state.settings.mode] = Math.max(modeScores[state.settings.mode] || 0, state.score);
       nextProfile.bestByMode = modeScores;
-      
-      // Si on est en mode challenge, ajouter aussi au bestChallenge
+
       if (state.settings.mode === "challenge") {
-        nextProfile.bestChallenge = (profile.bestChallenge || 0) + points;
+        nextProfile.bestChallenge = Math.max(profile.bestChallenge || 0, state.score);
       }
-      
+
       return nextProfile;
     });
 
-    // Mettre à jour l'affichage du meilleur score immédiatement
     const profile = getCurrentProfile();
     if (profile && elements.bestScore) {
       elements.bestScore.textContent = profile.bestScore || 0;
+    }
+    if (profile && elements.bestChallenge && state.settings.mode === "challenge") {
+      elements.bestChallenge.textContent = profile.bestChallenge || 0;
     }
   }
 
@@ -1442,9 +1499,22 @@
     const hasSavedGame = Boolean(profile && profile.savedGame);
 
     loadRecords();
+    const hasLeaderboardScore = Boolean(
+      profile &&
+      ((profile.bestScore || 0) > 0 ||
+        (profile.bestChallenge || 0) > 0 ||
+        Object.values(profile.bestByMode || {}).some((score) => Number(score || 0) > 0))
+    );
+
     elements.startButton.disabled = !profile;
     elements.resumeButton.classList.toggle("hidden", !hasSavedGame);
     elements.resetScoreButton.disabled = !profile;
+    if (elements.leaderboardResetButton) {
+      elements.leaderboardResetButton.disabled = !hasLeaderboardScore;
+    }
+    if (elements.leaderboardResetButtonResult) {
+      elements.leaderboardResetButtonResult.disabled = !hasLeaderboardScore;
+    }
     elements.logoutButton.classList.toggle("hidden", !profile);
     elements.usernameInput.value = profile ? profile.displayName : "";
     elements.passwordInput.value = "";
@@ -1538,20 +1608,32 @@
       return 0;
     }
 
+    const modeScores = profile.bestByMode || {};
+
     if (mode === "all") {
-      return profile.bestScore || 0;
+      const bestByMode = Object.values(modeScores).reduce(
+        (maxScore, value) => Math.max(maxScore, Number(value) || 0),
+        0
+      );
+      return Math.max(profile.bestScore || 0, bestByMode);
     }
 
-    const modeScores = profile.bestByMode || {};
     return modeScores[mode] || 0;
   }
 
   function getRemoteScoreForMode(entry, mode) {
+    const modeScores = entry && entry.mode_scores && typeof entry.mode_scores === "object"
+      ? entry.mode_scores
+      : {};
+
     if (mode === "all") {
-      return entry.best_score || 0;
+      const bestByMode = Object.values(modeScores).reduce(
+        (maxScore, value) => Math.max(maxScore, Number(value) || 0),
+        0
+      );
+      return Math.max(entry.best_score || 0, bestByMode);
     }
 
-    const modeScores = entry.mode_scores;
     if (modeScores && typeof modeScores === "object") {
       return modeScores[mode] || 0;
     }
@@ -2107,22 +2189,20 @@
   }
 
   function mergeLocalAndRemoteProfile(localProfile, remoteProfile) {
-    // Fusionner les deux profils pour accumuler les scores et l'historique
+    // Fusionner les deux profils sans gonfler artificiellement les records.
     const mergedProfile = { ...localProfile };
 
-    // Additionner les scores globaux des deux appareils
-    mergedProfile.bestScore = (localProfile.bestScore || 0) + (remoteProfile.bestScore || 0);
+    mergedProfile.bestScore = Math.max(localProfile.bestScore || 0, remoteProfile.bestScore || 0);
+    mergedProfile.bestChallenge = Math.max(localProfile.bestChallenge || 0, remoteProfile.bestChallenge || 0);
 
-    // Additionner les scores challenge
-    mergedProfile.bestChallenge = (localProfile.bestChallenge || 0) + (remoteProfile.bestChallenge || 0);
-
-    // Additionner les meilleurs scores par mode
-    const mergedByMode = { ...localProfile.bestByMode };
+    const localModeScores = localProfile.bestByMode || {};
     const remoteModeScores = remoteProfile.bestByMode || {};
-    for (const mode in remoteModeScores) {
-      mergedByMode[mode] = (mergedByMode[mode] || 0) + (remoteModeScores[mode] || 0);
-    }
-    mergedProfile.bestByMode = mergedByMode;
+    mergedProfile.bestByMode = {
+      standard: Math.max(localModeScores.standard || 0, remoteModeScores.standard || 0),
+      learning: Math.max(localModeScores.learning || 0, remoteModeScores.learning || 0),
+      challenge: Math.max(localModeScores.challenge || 0, remoteModeScores.challenge || 0),
+      battle: Math.max(localModeScores.battle || 0, remoteModeScores.battle || 0),
+    };
 
     // Fusionner l'historique des parties
     const localHistory = Array.isArray(localProfile.history)
@@ -2327,20 +2407,25 @@
         }
 
         const remote = rows[0];
-        updateCurrentProfile((profile) => ({
-          ...profile,
-          displayName: remote.display_name || profile.displayName,
-          bestScore: Math.max(profile.bestScore || 0, remote.best_score || 0),
-          bestByMode:
+        updateCurrentProfile((profile) => {
+          const currentModeScores = profile.bestByMode || {};
+          const remoteModeScores =
             remote.mode_scores && typeof remote.mode_scores === "object"
-              ? { ...(profile.bestByMode || {}), ...remote.mode_scores }
-              : profile.bestByMode || {
-                  standard: 0,
-                  learning: 0,
-                  challenge: 0,
-                  battle: 0,
-                },
-        }));
+              ? remote.mode_scores
+              : {};
+
+          return {
+            ...profile,
+            displayName: remote.display_name || profile.displayName,
+            bestScore: Math.max(profile.bestScore || 0, remote.best_score || 0),
+            bestByMode: {
+              standard: Math.max(currentModeScores.standard || 0, remoteModeScores.standard || 0),
+              learning: Math.max(currentModeScores.learning || 0, remoteModeScores.learning || 0),
+              challenge: Math.max(currentModeScores.challenge || 0, remoteModeScores.challenge || 0),
+              battle: Math.max(currentModeScores.battle || 0, remoteModeScores.battle || 0),
+            },
+          };
+        });
 
         loadRecords();
         renderLeaderboard();

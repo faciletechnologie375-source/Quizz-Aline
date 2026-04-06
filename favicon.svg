@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cap sur le Quiz">
+  <defs>
+    <linearGradient id="quizGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e4b50" />
+      <stop offset="100%" stop-color="#1f8c8d" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#f6c445" />
+  <circle cx="32" cy="32" r="18" fill="url(#quizGrad)" />
+  <path d="M17 24c9 2 21 2 30 0M16 32h32M17 40c9-2 21-2 30 0M32 14c-5 5-8 11-8 18s3 13 8 18m0-36c5 5 8 11 8 18s-3 13-8 18" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-width="2.4" />
+  <circle cx="46" cy="18" r="7" fill="#ffffff" opacity="0.96" />
+  <text x="46" y="21" text-anchor="middle" font-size="8" font-family="Arial, sans-serif" font-weight="700" fill="#0e4b50">?</text>
+</svg>

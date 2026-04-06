@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cap sur le Quiz</title>
+    <meta name="theme-color" content="#0e4b50" />
+    <link rel="icon" type="image/jpeg" href="logo.jpg" />
+    <link rel="apple-touch-icon" href="logo.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,8 +19,13 @@
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Quiz Pays, Capitales et Monuments</p>
-          <h1>Cap sur le Quiz Aline</h1>
+          <div class="hero-brand">
+            <img class="hero-logo" src="logo.jpg" alt="Logo Cap sur le Quiz" />
+            <div>
+              <p class="eyebrow">Quiz Pays, Capitales et Monuments</p>
+              <h1>Cap sur le Quiz Aline</h1>
+            </div>
+          </div>
           <p class="hero-text">
             Un jeu de géographie interactif avec cartes, indices, mode
             apprentissage, défis chronométrés et duel contre un bot.
@@ -186,6 +194,7 @@
                     <option value="battle">Mode duel</option>
                   </select>
                   <button type="button" class="leaderboard-refresh" id="leaderboard-refresh-button">Actualiser</button>
+                  <button type="button" class="leaderboard-reset" id="leaderboard-reset-button">Réinitialiser mon classement</button>
                 </div>
               </div>
               <div class="dashboard-list" id="leaderboard-list"></div>
@@ -351,6 +360,7 @@
                     <option value="battle">Mode duel</option>
                   </select>
                   <button type="button" class="leaderboard-refresh" id="leaderboard-refresh-button-result">Actualiser</button>
+                  <button type="button" class="leaderboard-reset" id="leaderboard-reset-button-result">Réinitialiser mon classement</button>
                 </div>
               </div>
               <div class="dashboard-list" id="leaderboard-list-result"></div>

@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Installer Cap sur le Quiz</title>
+    <meta name="theme-color" content="#0e4b50" />
+    <link rel="icon" type="image/jpeg" href="logo.jpg" />
+    <link rel="apple-touch-icon" href="logo.jpg" />
     <style>
       :root {
         --bg1: #fff4d6;
@@ -241,19 +244,20 @@
         </div>
 
         <div class="actions">
-          <a class="btn" href="https://raw.githubusercontent.com/faciletechnologie375-source/Quizz-Aline/main/downloads/latest.apk" download="Cap-sur-le-Quiz.apk">
+          <a class="btn" href="downloads/latest.apk" download="Cap-sur-le-Quiz.apk">
             ⬇ Télécharger l'APK Android
           </a>
           <a
             class="wa"
+            id="share-whatsapp-link"
             target="_blank"
             rel="noopener noreferrer"
-            href="https://wa.me/?text=Telecharge%20Cap%20sur%20le%20Quiz%20ici%20%3A%20https%3A%2F%2Ffaciletechnologie375-source.github.io%2FQuizz-Aline%2Finstaller.html"
+            href="#"
           >
             Partager sur WhatsApp
           </a>
         </div>
-        <p class="mirror">Lien alternatif : <a href="https://faciletechnologie375-source.github.io/Quizz-Aline/downloads/latest.apk" download="Cap-sur-le-Quiz.apk">téléchargement GitHub Pages</a></p>
+        <p class="mirror">Lien alternatif : <a href="downloads/latest.apk" download="Cap-sur-le-Quiz.apk">téléchargement direct</a></p>
 
         <div class="guide">
           <p class="guide-title">Comment installer sur Android</p>
@@ -295,12 +299,31 @@
 
         <div class="qr">
           <img
-            src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https%3A%2F%2Ffaciletechnologie375-source.github.io%2FQuizz-Aline%2Finstaller.html"
+            id="installer-qr"
+            src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=installer.html"
             alt="QR code de telechargement"
           />
           <p>Scanne pour installer</p>
         </div>
       </section>
     </main>
+
+    <script>
+      (function () {
+        const installerUrl = new URL("installer.html", window.location.href).href;
+        const shareLink = document.getElementById("share-whatsapp-link");
+        const qrImage = document.getElementById("installer-qr");
+
+        if (shareLink) {
+          shareLink.href = `https://wa.me/?text=${encodeURIComponent(
+            `Telecharge Cap sur le Quiz ici : ${installerUrl}`
+          )}`;
+        }
+
+        if (qrImage) {
+          qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(installerUrl)}`;
+        }
+      })();
+    </script>
   </body>
 </html>

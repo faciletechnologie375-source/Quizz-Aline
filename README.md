@@ -104,7 +104,7 @@ with check (true);
 
 ## Hebergement
 
-Le projet est publie sur GitHub Pages depuis la branche `main`. Chaque `git push` sur `main` redeploie le site automatiquement. Voir `DEPLOY.md`.
+Le projet peut etre publie sur Render soit comme **site statique**, soit comme **Web Service Node.js** via `npm start`. Une fois deploie, Render fournit une URL du type `https://ton-service.onrender.com/`. Voir `DEPLOY.md`.
 
 ## Distribution par lien direct (sans Play Store)
 
@@ -126,9 +126,9 @@ Note technique:
 
 - La version telechargeable par lien utilise maintenant l'identifiant Android `com.capquiz.aline.public` pour eviter les conflits avec une ancienne version de developpement.
 
-- Page ultra simple (1 bouton): `https://faciletechnologie375-source.github.io/Quizz-Aline/installer.html`
-- Page de telechargement: `https://faciletechnologie375-source.github.io/Quizz-Aline/telecharger.html`
-- Lien direct APK: `https://faciletechnologie375-source.github.io/Quizz-Aline/downloads/latest.apk`
+- Page ultra simple (1 bouton): `https://ton-service.onrender.com/installer.html`
+- Page de telechargement: `https://ton-service.onrender.com/telecharger.html`
+- Lien direct APK: `https://ton-service.onrender.com/downloads/latest.apk`
 
 La page `installer.html` inclut aussi un bouton de partage WhatsApp.
 La page inclut egalement un QR code pour installation directe depuis un telephone.
@@ -148,7 +148,7 @@ npm run mobile:build:release
 
 3. Fais un commit puis un push sur `main`.
 
-Une fois GitHub Pages redeploye, le meme lien `downloads/latest.apk` distribuera automatiquement la nouvelle version.
+Une fois Render redeploye, le meme lien `downloads/latest.apk` distribuera automatiquement la nouvelle version.
 
 ## Application mobile (Android)
 
